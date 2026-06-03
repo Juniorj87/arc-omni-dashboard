@@ -67,26 +67,6 @@ export function useOmniPositions(address: string | null) {
           provider.getTransactionCount(validAddress).catch(() => 0)
         ]);
 
-        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(180, Math.ceil(txCount / 1.2))) : 0;
-        const activeWeeks = Math.ceil(activeDaysCount / 7);
-        const activeMonths = Math.ceil(activeDaysCount / 30);
-        const engagementScore = (txCount * 10) + (activeDaysCount * 50) + (activePositions.length * 500);
-
-        setBalances({
-          USDC: ethers.formatUnits(usdcBal, TOKENS.USDC.decimals),
-          EURC: ethers.formatUnits(eurcBal, TOKENS.EURC.decimals),
-          ARC: ethers.formatEther(arcBal),
-        });
-
-        setExtraData({
-          gasSpent: (txCount * 0.045).toFixed(2),
-          txCount: txCount,
-          activeDays: activeDaysCount,
-          activeWeeks: activeWeeks,
-          activeMonths: activeMonths,
-          score: engagementScore
-        });
-
         const activePositions: Position[] = [];
 
         // 1. Achswap
@@ -154,7 +134,28 @@ export function useOmniPositions(address: string | null) {
           }
         } catch (e) {}
 
+        // Analytics & Calculations
+        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(180, Math.ceil(txCount / 1.2))) : 0;
+        const activeWeeks = Math.ceil(activeDaysCount / 7);
+        const activeMonths = Math.ceil(activeDaysCount / 30);
+        const engagementScore = (txCount * 10) + (activeDaysCount * 50) + (activePositions.length * 500);
+
+        setBalances({
+          USDC: ethers.formatUnits(usdcBal, TOKENS.USDC.decimals),
+          EURC: ethers.formatUnits(eurcBal, TOKENS.EURC.decimals),
+          ARC: ethers.formatEther(arcBal),
+        });
+
         setPositions(activePositions);
+
+        setExtraData({
+          gasSpent: (txCount * 0.045).toFixed(2),
+          txCount: txCount,
+          activeDays: activeDaysCount,
+          activeWeeks: activeWeeks,
+          activeMonths: activeMonths,
+          score: engagementScore
+        });
 
         if (txCount > 0) {
            setHistory([
