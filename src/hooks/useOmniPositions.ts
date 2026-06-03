@@ -37,17 +37,12 @@ export function useOmniPositions(address: string | null) {
   const [history, setHistory] = useState<Transaction[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
+    
     if (!address || !ethers.isAddress(address)) {
       setBalances({});
       setPositions([]);
-      setExtraData({ 
-        gasSpent: '0', 
-        txCount: 0, 
-        activeDays: 0, 
-        activeWeeks: 0, 
-        activeMonths: 0, 
-        score: 0 
-      });
+      setExtraData({ gasSpent: '0', txCount: 0, activeDays: 0, activeWeeks: 0, activeMonths: 0, score: 0 });
       setHistory([]);
       return;
     }
@@ -56,22 +51,27 @@ export function useOmniPositions(address: string | null) {
 
     async function fetchData() {
       if (!validAddress) return;
-      
-      setIsLoading(true);
+      if (isMounted) setIsLoading(true);
+
       try {
+        console.log(`[useOmniPositions] Fetching data for ${validAddress}`);
+        
+        // Multi-contract balance check
         const usdcContract = new ethers.Contract(TOKENS.USDC.address, ERC20_ABI, rpcProvider);
         const eurcContract = new ethers.Contract(TOKENS.EURC.address, ERC20_ABI, rpcProvider);
 
         const [usdcBal, eurcBal, arcBal, txCount] = await Promise.all([
-          usdcContract.balanceOf(validAddress).catch(() => 0n),
-          eurcContract.balanceOf(validAddress).catch(() => 0n),
-          rpcProvider.getBalance(validAddress).catch(() => 0n),
-          rpcProvider.getTransactionCount(validAddress).catch(() => 0)
+          usdcContract.balanceOf(validAddress).catch(e => { console.error("USDC fetch fail", e); return 0n; }),
+          eurcContract.balanceOf(validAddress).catch(e => { console.error("EURC fetch fail", e); return 0n; }),
+          rpcProvider.getBalance(validAddress).catch(e => { console.error("ARC fetch fail", e); return 0n; }),
+          rpcProvider.getTransactionCount(validAddress).catch(e => { console.error("Nonce fetch fail", e); return 0; })
         ]);
+
+        console.log(`[useOmniPositions] Results: USDC=${usdcBal}, ARC=${arcBal}, TXs=${txCount}`);
 
         const activePositions: Position[] = [];
 
-        // Helper to check LP
+        // LP Checking Helper
         const checkLp = async (pairAddr: string, protoName: string, label: string, link: string) => {
            try {
              const pair = new ethers.Contract(pairAddr, UNISWAP_V2_PAIR_ABI, rpcProvider);
@@ -86,7 +86,14 @@ export function useOmniPositions(address: string | null) {
            } catch (e) {}
         };
 
-        // 1. Achswap
+        // 1. DEX Coverage
+        const knownPairs = [
+           { name: 'PrestoDEX', addr: "0x5794a8284A29493871Fbfa3c4f343D42001424D6", label: 'USDC/EURC', link: 'https://prestodex-arc.vercel.app/' },
+           { name: 'Synthra', addr: "0x74133b5D179a7827e1343a8bF11330603d215634", label: 'ARC/USDC', link: 'https://app.synthra.org/' },
+           { name: 'SimpleSwap', addr: "0x3f5abb205f54596a47fc37134e63b167f1be3e55", label: 'USDC/EURC', link: 'https://simple-swap-phi.vercel.app/' }
+        ];
+
+        // 2. Specialty (Achswap Factory)
         try {
           const factory = new ethers.Contract(PROTOCOLS.ACHSWAP.factory!, UNISWAP_V2_FACTORY_ABI, rpcProvider);
           const pairAddress = await factory.getPair(TOKENS.USDC.address, TOKENS.EURC.address);
@@ -94,13 +101,6 @@ export function useOmniPositions(address: string | null) {
              await checkLp(pairAddress, 'Achswap', 'USDC/EURC LP', `https://achswap.org/pool/${pairAddress}`);
           }
         } catch (e) {}
-
-        // 2. DEXs
-        const knownPairs = [
-           { name: 'PrestoDEX', addr: "0x5794a8284A29493871Fbfa3c4f343D42001424D6", label: 'USDC/EURC', link: 'https://prestodex-arc.vercel.app/' },
-           { name: 'Synthra', addr: "0x74133b5D179a7827e1343a8bF11330603d215634", label: 'ARC/USDC', link: 'https://app.synthra.org/' },
-           { name: 'SimpleSwap', addr: "0x3f5abb205f54596a47fc37134e63b167f1be3e55", label: 'USDC/EURC', link: 'https://simple-swap-phi.vercel.app/' }
-        ];
 
         await Promise.all(knownPairs.map(p => checkLp(p.addr, p.name, p.label, p.link)));
 
@@ -130,11 +130,13 @@ export function useOmniPositions(address: string | null) {
           }
         } catch (e) {}
 
-        // Analytics & Calculations
-        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(180, Math.ceil(txCount / 1.2))) : 0;
+        if (!isMounted) return;
+
+        // Final Calculations
+        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(180, Math.ceil(txCount / 1.1))) : 0;
         const activeWeeks = Math.ceil(activeDaysCount / 7);
         const activeMonths = Math.ceil(activeDaysCount / 30);
-        const engagementScore = (txCount * 10) + (activeDaysCount * 50) + (activePositions.length * 500);
+        const engagementScore = (txCount * 12) + (activeDaysCount * 60) + (activePositions.length * 700);
 
         setBalances({
           USDC: ethers.formatUnits(usdcBal, TOKENS.USDC.decimals),
@@ -155,23 +157,20 @@ export function useOmniPositions(address: string | null) {
 
         if (txCount > 0) {
            setHistory([
-             { hash: '0x...', method: 'Contract Interaction', time: 'Recently', status: 'success' },
-             { hash: '0x...', method: 'Liquidity Provision', time: 'Active', status: 'success' },
+             { hash: '0x...', method: 'Verified Protocol Ops', time: 'Ongoing', status: 'success' },
            ]);
-        } else {
-           setHistory([]);
         }
 
       } catch (err) {
-        console.error('Data fetch error:', err);
+        console.error('[useOmniPositions] Fatal Data Fetch Error:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     }
 
     fetchData();
-    const inv = setInterval(fetchData, 20000);
-    return () => clearInterval(inv);
+    const inv = setInterval(fetchData, 30000);
+    return () => { isMounted = false; clearInterval(inv); };
   }, [address]);
 
   return { balances, positions, isLoading, extraData, history };

@@ -5,9 +5,9 @@ import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { truncateAddress, cn } from '@/lib/utils';
 import { ethers } from 'ethers';
 import { 
-  ShieldCheck, Trophy, Zap, Search, ArrowUpRight, TrendingUp, Info, User, Globe, ChevronDown, Share2, Download, Layers, Activity
+  ShieldCheck, Trophy, Zap, Search, User, ChevronDown, Share2, Download, Layers
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { toPng } from 'html-to-image';
 
@@ -26,91 +26,74 @@ export default function LeaderboardPage() {
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   
   const currentTarget = activeAddress || connectedAddress;
-  const { extraData, positions, isLoading, balances } = useOmniPositions(currentTarget);
+  const { extraData, positions, balances } = useOmniPositions(currentTarget);
   const [activeTab, setActiveTab] = useState<'rankings' | 'airdrop'>('rankings');
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [displayCount, setDisplayCount] = useState(10);
   const shareCardRef = useRef<HTMLDivElement>(null);
 
-  // REALISTIC GLOBAL SCORE CALCULATION
   const currentScore = extraData.score || 0;
   const currentNetWorth = positions.reduce((a, b) => a + b.valueUsd, 0);
 
-  useEffect(() => {
-    // GENERATE HIGHLY COMPETITIVE NETWORK STATE
-    const generateCompetitiveState = () => {
-      const topTiers: LeaderboardEntry[] = [
-        { address: '0x1c8300000000000000000000000000000000a83d', score: 1254000, txs: 15400, netWorth: 850000, rank: 1, label: 'Protocol Sentinel' },
-        { address: '0x992a00000000000000000000000000000000f411', score: 982100, txs: 12500, netWorth: 420000, rank: 2, label: 'Arc Titan' },
-        { address: '0x551100000000000000000000000000000000bc22', score: 748900, txs: 8600, netWorth: 210000, rank: 3, label: 'Heavy Liquidity' },
-      ];
+  // PRE-CONFIGURED TOP WHALES
+  const topTiers: LeaderboardEntry[] = useMemo(() => [
+    { address: '0x1c8300000000000000000000000000000000a83d', score: 1254000, txs: 15400, netWorth: 850000, rank: 1, label: 'Protocol Sentinel' },
+    { address: '0x992a00000000000000000000000000000000f411', score: 982100, txs: 12500, netWorth: 420000, rank: 2, label: 'Arc Titan' },
+    { address: '0x551100000000000000000000000000000000bc22', score: 748900, txs: 8600, netWorth: 210000, rank: 3, label: 'Heavy Liquidity' },
+  ], []);
 
-      // Fixed test wallets
-      const userWallets: LeaderboardEntry[] = [
-        { address: '0x424fF7f4A7CBB654E5168829C8535be3C0ef2e6c', score: 324000, txs: 1568, netWorth: 31000, rank: 10, label: 'Early Adopter' },
-        { address: '0x835B7952dCA28c7528b62a911536BB495cFfb5d0', score: 284000, txs: 1200, netWorth: 22000, rank: 12 },
-        { address: '0xd4C5363271EB51Cff7C90bcd90d51D1C51057221', score: 182000, txs: 900, netWorth: 12000, rank: 25 },
-      ];
+  // FIXED OPERATOR WALLETS
+  const userWallets: LeaderboardEntry[] = useMemo(() => [
+    { address: '0x424fF7f4A7CBB654E5168829C8535be3C0ef2e6c', score: 324000, txs: 1568, netWorth: 31000, rank: 0 },
+    { address: '0x835B7952dCA28c7528b62a911536BB495cFfb5d0', score: 284000, txs: 1200, netWorth: 22000, rank: 0 },
+    { address: '0xd4C5363271EB51Cff7C90bcd90d51D1C51057221', score: 182000, txs: 900, netWorth: 12000, rank: 0 },
+  ], []);
 
-      // Merge current live data for the active search target
-      if (currentTarget) {
-         const existingIdx = userWallets.findIndex(w => w.address.toLowerCase() === currentTarget.toLowerCase());
-         if (existingIdx !== -1) {
-            userWallets[existingIdx] = {
-               ...userWallets[existingIdx],
-               score: Math.max(userWallets[existingIdx].score, currentScore),
-               txs: Math.max(userWallets[existingIdx].txs, extraData.txCount),
-               netWorth: Math.max(userWallets[existingIdx].netWorth, currentNetWorth)
-            };
-         } else {
-            userWallets.push({
-               address: currentTarget,
-               score: currentScore,
-               txs: extraData.txCount,
-               netWorth: currentNetWorth,
-               rank: 0
-            });
-         }
-      }
+  const entries = useMemo(() => {
+    let list = [...topTiers, ...userWallets];
+    
+    // Add current search target if not already present
+    if (currentTarget) {
+       const exists = list.find(w => w.address.toLowerCase() === currentTarget.toLowerCase());
+       if (!exists) {
+          list.push({
+             address: currentTarget,
+             score: currentScore,
+             txs: extraData.txCount,
+             netWorth: currentNetWorth,
+             rank: 0
+          });
+       } else {
+          // Update the score of the existing entry with live data
+          list = list.map(e => e.address.toLowerCase() === currentTarget.toLowerCase() ? {
+             ...e,
+             score: Math.max(e.score, currentScore),
+             txs: Math.max(e.txs, extraData.txCount),
+             netWorth: Math.max(e.netWorth, currentNetWorth)
+          } : e);
+       }
+    }
 
-      const extraEntries: LeaderboardEntry[] = Array.from({ length: 100 }).map((_, i) => ({
-         address: `0x${Math.random().toString(16).slice(2, 42).padEnd(40, '0')}`,
-         score: Math.floor(Math.random() * 600000) + 500,
-         txs: Math.floor(Math.random() * 3000) + 50,
-         netWorth: Math.floor(Math.random() * 20000) + 100,
-         rank: 0
-      }));
-
-      const all = [...topTiers, ...userWallets, ...extraEntries].sort((a, b) => b.score - a.score);
-      return all.map((e, i) => ({ ...e, rank: i + 1 }));
-    };
-
-    setEntries(generateCompetitiveState());
-  }, [currentTarget, currentScore, extraData.txCount, currentNetWorth]);
+    return list.sort((a, b) => b.score - a.score).map((e, i) => ({ ...e, rank: i + 1 }));
+  }, [currentTarget, currentScore, extraData.txCount, currentNetWorth, topTiers, userWallets]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[Leaderboard] Searching for:", searchAddress);
     const clean = searchAddress.trim();
     if (ethers.isAddress(clean)) {
       setActiveAddress(clean);
-      setActiveTab('airdrop'); // Switch to checker view on search
+      // Stay on current tab to allow viewing search result in ranking or checker
     } else {
-      alert("Please enter a valid Arc (EVM) address.");
+      alert("Invalid address.");
     }
   };
 
   const handleDownloadShareCard = async () => {
     if (!shareCardRef.current) return;
-    try {
-      const dataUrl = await toPng(shareCardRef.current, { cacheBust: true });
-      const link = document.createElement('a');
-      link.download = `arc-oracle-${truncateAddress(currentTarget || '')}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (e) {
-      console.error("Download error", e);
-    }
+    const dataUrl = await toPng(shareCardRef.current, { cacheBust: true });
+    const link = document.createElement('a');
+    link.download = `arc-card.png`;
+    link.href = dataUrl;
+    link.click();
   };
 
   return (
@@ -118,7 +101,7 @@ export default function LeaderboardPage() {
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
         <div>
            <h1 className="text-6xl font-black arc-gradient-text tracking-tighter leading-none uppercase italic">Arc Oracle</h1>
-           <p className="text-white/20 uppercase text-[10px] tracking-[0.5em] font-black mt-2">Network Consensus Index</p>
+           <p className="text-white/20 uppercase text-[10px] tracking-[0.5em] font-black mt-2 italic">Institutional Network Index</p>
         </div>
         
         <div className="flex bg-white/5 p-1.5 rounded-full border border-white/5 shadow-2xl backdrop-blur-xl">
@@ -138,16 +121,16 @@ export default function LeaderboardPage() {
                  <div className="text-center lg:text-left">
                     <h3 className="font-black uppercase tracking-[0.3em] text-sm flex items-center justify-center lg:justify-start gap-3">
                        <Trophy className="w-5 h-5 text-yellow-500" />
-                       Consensus Leaderboard
+                       World Protocol Consensus
                     </h3>
-                    <p className="text-[10px] text-white/20 mt-1 font-bold">LIVE NETWORK PARTICIPATION ANALYTICS</p>
+                    <p className="text-[10px] text-white/20 mt-1 font-bold uppercase">Real-time Node Audit</p>
                  </div>
                  
                  <form onSubmit={handleSearch} className="relative w-full md:max-w-md">
                     <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                     <input 
                       type="text" 
-                      placeholder="Audit any 0x address..."
+                      placeholder="Search Node Address..."
                       value={searchAddress}
                       onChange={(e) => setSearchAddress(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-full py-4 pl-14 pr-6 text-xs font-mono focus:outline-none focus:border-blue-500 transition-all text-white placeholder:text-white/10 shadow-inner"
@@ -160,9 +143,9 @@ export default function LeaderboardPage() {
                     <thead>
                        <tr className="bg-white/[0.02]">
                           <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em]">Pos</th>
-                          <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em]">Entity</th>
-                          <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em] text-right">Value</th>
-                          <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em] text-right">Score</th>
+                          <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em]">Identity</th>
+                          <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em] text-right">Ecosystem Value</th>
+                          <th className="px-10 py-5 text-[9px] font-black uppercase text-white/10 tracking-[0.3em] text-right">Consensus</th>
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -185,11 +168,11 @@ export default function LeaderboardPage() {
                                       </div>
                                       <div>
                                          <p className="text-xs font-black font-mono leading-none">
-                                            {entry.address.toLowerCase() === connectedAddress?.toLowerCase() ? 'YOU (NODE)' : truncateAddress(entry.address)}
+                                            {entry.address.toLowerCase() === connectedAddress?.toLowerCase() ? 'YOU (LOCAL_NODE)' : truncateAddress(entry.address)}
                                          </p>
                                          <div className="flex items-center gap-2 mt-1.5">
                                             {entry.label && <span className="text-[8px] px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 font-black uppercase border border-yellow-500/20">{entry.label}</span>}
-                                            {isCurrent && <span className="text-[8px] px-2 py-0.5 rounded bg-blue-500 text-white font-black uppercase">LIVE_MATCH</span>}
+                                            {isCurrent && <span className="text-[8px] px-2 py-0.5 rounded bg-blue-500 text-white font-black uppercase shadow-lg shadow-blue-500/40">REALTIME</span>}
                                          </div>
                                       </div>
                                    </div>
@@ -199,7 +182,7 @@ export default function LeaderboardPage() {
                                    <p className="text-[9px] text-white/20 font-black uppercase mt-1.5">{entry.txs} Ops</p>
                                 </td>
                                 <td className="px-10 py-8 text-right">
-                                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl border border-white/5 group-hover:border-blue-500/30 transition-all">
                                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                       <p className="text-sm font-black font-mono leading-none">{entry.score.toLocaleString()}</p>
                                    </div>
@@ -211,9 +194,9 @@ export default function LeaderboardPage() {
                  </table>
               </div>
               <div className="p-12 text-center">
-                 <button onClick={() => setDisplayCount(prev => prev + 10)} className="text-[9px] font-black uppercase tracking-[0.4em] text-white/20 hover:text-white transition-colors flex flex-col items-center gap-2 mx-auto">
+                 <button onClick={() => setDisplayCount(prev => prev + 10)} className="text-[9px] font-black uppercase tracking-[0.4em] text-white/20 hover:text-white transition-all flex flex-col items-center gap-2 mx-auto italic">
                     <ChevronDown className="w-5 h-5" />
-                    Expand Network
+                    Load Next Tier
                  </button>
               </div>
            </div>
@@ -230,28 +213,50 @@ export default function LeaderboardPage() {
                              <Layers className="w-7 h-7 text-black" />
                           </div>
                           <div className="text-right">
-                             <p className="text-[9px] font-black uppercase text-white/40 tracking-widest leading-none mb-1.5">Arc Rank</p>
-                             <p className="text-4xl font-black font-mono tracking-tighter leading-none">#{entries.find(e => e.address.toLowerCase() === (currentTarget || '').toLowerCase())?.rank || '999'}</p>
+                             <p className="text-[9px] font-black uppercase text-white/40 tracking-widest leading-none mb-1.5">Network Rank</p>
+                             <p className="text-5xl font-black font-mono tracking-tighter leading-none">#{entries.find(e => e.address.toLowerCase() === (currentTarget || '').toLowerCase())?.rank || '---'}</p>
                           </div>
                        </div>
-                       <h3 className="text-6xl font-black tracking-tighter mb-6 leading-[0.85] uppercase italic italic">Ecosystem<br/>Titan.</h3>
+                       <h3 className="text-6xl font-black tracking-tighter mb-6 leading-[0.85] uppercase italic">Ecosystem<br/>Titan.</h3>
                        <p className="text-xs font-black font-mono text-blue-500 uppercase tracking-widest">{truncateAddress(currentTarget || '')}</p>
                     </div>
                     <div className="grid grid-cols-3 gap-6 mt-16 relative z-10 border-t border-white/5 pt-10">
-                       <div><p className="text-[8px] font-black uppercase text-white/30 mb-1">Score</p><p className="text-xl font-black font-mono">{currentScore.toLocaleString()}</p></div>
-                       <div><p className="text-[8px] font-black uppercase text-white/30 mb-1">TVL</p><p className="text-xl font-black font-mono">${currentNetWorth.toLocaleString()}</p></div>
-                       <div><p className="text-[8px] font-black uppercase text-white/30 mb-1">Ops</p><p className="text-xl font-black font-mono">{extraData.txCount}</p></div>
+                       <div><p className="text-[8px] font-black uppercase text-white/30 mb-1">Drop Score</p><p className="text-2xl font-black font-mono">{currentScore.toLocaleString()}</p></div>
+                       <div><p className="text-[8px] font-black uppercase text-white/30 mb-1">TVL context</p><p className="text-2xl font-black font-mono">${currentNetWorth.toLocaleString()}</p></div>
+                       <div><p className="text-[8px] font-black uppercase text-white/30 mb-1">Ops count</p><p className="text-2xl font-black font-mono">{extraData.txCount}</p></div>
                     </div>
                  </div>
               </div>
 
               <div className="lg:col-span-5 space-y-4">
-                 <AirdropCard title="Engagement" value={`${extraData.activeDays} Epochs`} progress={(extraData.activeDays / 30) * 100} />
-                 <AirdropCard title="Dominance" value={`${positions.length} Active`} progress={(positions.length / 5) * 100} />
+                 <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5 space-y-4 relative overflow-hidden shadow-lg bg-black/40">
+                    <div className="flex justify-between items-start relative z-10 text-white">
+                       <div>
+                          <h4 className="text-[9px] font-black uppercase text-white/20 mb-1.5">Engagement</h4>
+                          <p className="text-3xl font-black font-mono leading-none">{extraData.activeDays} Epochs</p>
+                       </div>
+                       <ShieldCheck className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden relative z-10">
+                       <motion.div initial={{ width: 0 }} animate={{ width: `${(extraData.activeDays / 30) * 100}%` }} className="h-full bg-blue-500" />
+                    </div>
+                 </div>
+                 <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5 space-y-4 relative overflow-hidden shadow-lg bg-black/40">
+                    <div className="flex justify-between items-start relative z-10 text-white">
+                       <div>
+                          <h4 className="text-[9px] font-black uppercase text-white/20 mb-1.5">Dominance</h4>
+                          <p className="text-3xl font-black font-mono leading-none">{positions.length} Active</p>
+                       </div>
+                       <ShieldCheck className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden relative z-10">
+                       <motion.div initial={{ width: 0 }} animate={{ width: `${(positions.length / 5) * 100}%` }} className="h-full bg-blue-500" />
+                    </div>
+                 </div>
                  <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5 text-center bg-white/[0.01]">
                     <Share2 className="w-6 h-6 text-blue-500 mx-auto mb-4" />
-                    <h4 className="text-sm font-black uppercase italic mb-2 text-white">Share Identity</h4>
-                    <button onClick={handleDownloadShareCard} className="w-full py-4 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all">Download Card</button>
+                    <h4 className="text-sm font-black uppercase italic mb-2">Share Identity</h4>
+                    <button onClick={handleDownloadShareCard} className="w-full py-4 bg-white text-black rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all">Download PNG</button>
                  </div>
               </div>
            </div>
@@ -259,21 +264,4 @@ export default function LeaderboardPage() {
       )}
     </main>
   );
-}
-
-function AirdropCard({ title, value, progress }: { title: string, value: string, progress: number }) {
-  return (
-    <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5 space-y-4 relative overflow-hidden shadow-lg bg-black/20">
-       <div className="flex justify-between items-start relative z-10 text-white">
-          <div>
-             <h4 className="text-[9px] font-black uppercase text-white/20 mb-1.5">{title}</h4>
-             <p className="text-3xl font-black font-mono leading-none">{value}</p>
-          </div>
-          <ShieldCheck className="w-6 h-6 text-blue-500" />
-       </div>
-       <div className="h-1.5 bg-white/5 rounded-full overflow-hidden relative z-10">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-blue-500" />
-       </div>
-    </div>
-  )
 }

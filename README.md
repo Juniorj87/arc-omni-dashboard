@@ -69,7 +69,7 @@ This dashboard is built specifically for the [Arc Network](https://arc.network/)
 
 - **Official Website:** [https://arc.network/](https://arc.network/)
 - **Network Explorer:** [ArcScan](https://testnet.arcscan.app)
-- **Official X (Twitter):** [@ArcOnEVM](https://x.com/ArcOnEVM)
+- **Official X (Twitter):** [arc](https://x.com/arc)
 
 ---
 
