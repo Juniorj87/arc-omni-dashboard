@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { X, Send, ArrowRight, ShieldCheck, Zap, AlertCircle, CheckCircle2, Search } from 'lucide-react';
 import { TOKENS } from '@/lib/constants';
@@ -14,17 +14,37 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
   const [token, setToken] = useState('USDC');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [txHash, setTxHash] = useState('');
+  const [userBalance, setUserBalance] = useState('0.00');
+
+  // Fetch balance when token or address changes
+  useEffect(() => {
+    async function fetchBal() {
+       if (!address || !isOpen) return;
+       try {
+          const rpcProvider = new ethers.JsonRpcProvider(TOKENS.USDC.address === TOKENS.USDC.address ? "https://rpc.testnet.arc.network" : "", undefined, { staticNetwork: true });
+          const tokenData = token === 'USDC' ? TOKENS.USDC : TOKENS.EURC;
+          const contract = new ethers.Contract(tokenData.address, ERC20_ABI, rpcProvider);
+          const bal = await contract.balanceOf(address);
+          setUserBalance(ethers.formatUnits(bal, tokenData.decimals));
+       } catch (e) {
+          console.error("Balance fetch error", e);
+       }
+    }
+    fetchBal();
+  }, [token, address, isOpen]);
 
   const handleSend = async () => {
-    if (!(window as any).ethereum) {
+    const eth = (window as any).ethereum;
+    if (!eth) {
        alert("No wallet detected. Please install MetaMask or Rabby.");
        return;
     }
     
     setStatus('loading');
     try {
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const signer = await provider.getSigner();
+      // Force static network to bypass ENS
+      const browserProvider = new ethers.BrowserProvider(eth, undefined, { staticNetwork: true });
+      const signer = await browserProvider.getSigner();
       
       const tokenData = token === 'USDC' ? TOKENS.USDC : TOKENS.EURC;
       const contract = new ethers.Contract(tokenData.address, ERC20_ABI, signer);
@@ -37,23 +57,13 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
          return;
       }
 
-      // Verification before send
-      const userBal = await contract.balanceOf(address);
       const amountToValue = ethers.parseUnits(amount, tokenData.decimals);
       
-      if (userBal < amountToValue) {
-         alert(`Insufficient ${token} balance.`);
-         setStatus('error');
-         return;
-      }
-
       console.log(`Attempting to send ${amount} ${token} to ${targetAddr}`);
       const tx = await contract.transfer(targetAddr, amountToValue);
       setTxHash(tx.hash);
       
-      const receipt = await tx.wait();
-      console.log("Transaction confirmed:", receipt);
-      
+      await tx.wait();
       setStatus('success');
       setTimeout(() => {
         onClose();
@@ -63,12 +73,7 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
       }, 5000);
     } catch (e: any) {
       console.error("Send Error:", e);
-      // Detailed error logging for user
-      if (e.code === 'ACTION_REJECTED') {
-         alert("Transaction rejected by user.");
-      } else {
-         alert(`Transmission Error: ${e.message || "Unknown error"}`);
-      }
+      alert(`Transmission Error: ${e.message || "Unknown error"}`);
       setStatus('error');
       setTimeout(() => setStatus('idle'), 4000);
     }

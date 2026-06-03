@@ -9,6 +9,9 @@ export function cn(...inputs: ClassValue[]) {
 
 export const provider = new ethers.JsonRpcProvider(ARC_NETWORK.rpcUrl);
 
+// Robust provider for backend calls that bypasses ENS
+export const rpcProvider = new ethers.JsonRpcProvider(ARC_NETWORK.rpcUrl, undefined, { staticNetwork: true });
+
 export function formatBalance(value: bigint, decimals: number = 18): string {
   return parseFloat(ethers.formatUnits(value, decimals)).toLocaleString(undefined, {
     minimumFractionDigits: 2,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { provider } from '../lib/utils';
+import { rpcProvider } from '../lib/utils';
 import { TOKENS, PROTOCOLS } from '../lib/constants';
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, ARC_PERP_ENGINE_ABI } from '../lib/abis';
 
@@ -52,21 +52,21 @@ export function useOmniPositions(address: string | null) {
       return;
     }
 
-    const validAddress = address;
+    const validAddress = ethers.getAddress(address);
 
     async function fetchData() {
-      if (!validAddress || !ethers.isAddress(validAddress)) return;
+      if (!validAddress) return;
       
       setIsLoading(true);
       try {
-        const usdcContract = new ethers.Contract(TOKENS.USDC.address, ERC20_ABI, provider);
-        const eurcContract = new ethers.Contract(TOKENS.EURC.address, ERC20_ABI, provider);
+        const usdcContract = new ethers.Contract(TOKENS.USDC.address, ERC20_ABI, rpcProvider);
+        const eurcContract = new ethers.Contract(TOKENS.EURC.address, ERC20_ABI, rpcProvider);
 
         const [usdcBal, eurcBal, arcBal, txCount] = await Promise.all([
           usdcContract.balanceOf(validAddress).catch(() => 0n),
           eurcContract.balanceOf(validAddress).catch(() => 0n),
-          provider.getBalance(validAddress).catch(() => 0n),
-          provider.getTransactionCount(validAddress).catch(() => 0)
+          rpcProvider.getBalance(validAddress).catch(() => 0n),
+          rpcProvider.getTransactionCount(validAddress).catch(() => 0)
         ]);
 
         const activePositions: Position[] = [];
@@ -74,7 +74,7 @@ export function useOmniPositions(address: string | null) {
         // Helper to check LP
         const checkLp = async (pairAddr: string, protoName: string, label: string, link: string) => {
            try {
-             const pair = new ethers.Contract(pairAddr, UNISWAP_V2_PAIR_ABI, provider);
+             const pair = new ethers.Contract(pairAddr, UNISWAP_V2_PAIR_ABI, rpcProvider);
              const lpBal = await pair.balanceOf(validAddress);
              if (lpBal > 0n) {
                activePositions.push({
@@ -88,7 +88,7 @@ export function useOmniPositions(address: string | null) {
 
         // 1. Achswap
         try {
-          const factory = new ethers.Contract(PROTOCOLS.ACHSWAP.factory!, UNISWAP_V2_FACTORY_ABI, provider);
+          const factory = new ethers.Contract(PROTOCOLS.ACHSWAP.factory!, UNISWAP_V2_FACTORY_ABI, rpcProvider);
           const pairAddress = await factory.getPair(TOKENS.USDC.address, TOKENS.EURC.address);
           if (pairAddress !== ethers.ZeroAddress) {
              await checkLp(pairAddress, 'Achswap', 'USDC/EURC LP', `https://achswap.org/pool/${pairAddress}`);
@@ -106,7 +106,7 @@ export function useOmniPositions(address: string | null) {
 
         // 3. Curve
         try {
-          const curveLp = new ethers.Contract(PROTOCOLS.CURVE.addressProvider, ERC20_ABI, provider);
+          const curveLp = new ethers.Contract(PROTOCOLS.CURVE.addressProvider, ERC20_ABI, rpcProvider);
           const lpBal = await curveLp.balanceOf(validAddress);
           if (lpBal > 0n) {
             activePositions.push({
@@ -119,7 +119,7 @@ export function useOmniPositions(address: string | null) {
 
         // 4. ArcPerps
         try {
-          const engine = new ethers.Contract(PROTOCOLS.ARC_PERP.engine, ARC_PERP_ENGINE_ABI, provider);
+          const engine = new ethers.Contract(PROTOCOLS.ARC_PERP.engine, ARC_PERP_ENGINE_ABI, rpcProvider);
           const depositBal = await engine.deposits(validAddress);
           if (depositBal > 0n) {
             activePositions.push({
