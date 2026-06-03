@@ -16,7 +16,11 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
   const [txHash, setTxHash] = useState('');
 
   const handleSend = async () => {
-    if (!(window as any).ethereum) return;
+    if (!(window as any).ethereum) {
+       alert("No wallet detected. Please install MetaMask or Rabby.");
+       return;
+    }
+    
     setStatus('loading');
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
@@ -25,9 +29,22 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
       const tokenData = token === 'USDC' ? TOKENS.USDC : TOKENS.EURC;
       const contract = new ethers.Contract(tokenData.address, ERC20_ABI, signer);
       
-      const tx = await contract.transfer(recipient, ethers.parseUnits(amount, tokenData.decimals));
+      // Verification before send
+      const userBal = await contract.balanceOf(address);
+      const amountToValue = ethers.parseUnits(amount, tokenData.decimals);
+      
+      if (userBal < amountToValue) {
+         alert(`Insufficient ${token} balance.`);
+         setStatus('error');
+         return;
+      }
+
+      console.log(`Attempting to send ${amount} ${token} to ${recipient}`);
+      const tx = await contract.transfer(recipient, amountToValue);
       setTxHash(tx.hash);
-      await tx.wait();
+      
+      const receipt = await tx.wait();
+      console.log("Transaction confirmed:", receipt);
       
       setStatus('success');
       setTimeout(() => {
@@ -35,9 +52,15 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
         setStatus('idle');
         setRecipient('');
         setAmount('');
-      }, 3000);
-    } catch (e) {
-      console.error(e);
+      }, 5000);
+    } catch (e: any) {
+      console.error("Send Error:", e);
+      // Detailed error logging for user
+      if (e.code === 'ACTION_REJECTED') {
+         alert("Transaction rejected by user.");
+      } else {
+         alert(`Transmission Error: ${e.message || "Unknown error"}`);
+      }
       setStatus('error');
       setTimeout(() => setStatus('idle'), 4000);
     }

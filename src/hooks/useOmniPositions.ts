@@ -26,14 +26,28 @@ export function useOmniPositions(address: string | null) {
   const [balances, setBalances] = useState<{ [key: string]: string }>({});
   const [positions, setPositions] = useState<Position[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [extraData, setExtraData] = useState({ gasSpent: '0', txCount: 0, activeDays: 0 });
+  const [extraData, setExtraData] = useState({ 
+    gasSpent: '0', 
+    txCount: 0, 
+    activeDays: 0, 
+    activeWeeks: 0, 
+    activeMonths: 0, 
+    score: 0 
+  });
   const [history, setHistory] = useState<Transaction[]>([]);
 
   useEffect(() => {
     if (!address || !ethers.isAddress(address)) {
       setBalances({});
       setPositions([]);
-      setExtraData({ gasSpent: '0', txCount: 0, activeDays: 0 });
+      setExtraData({ 
+        gasSpent: '0', 
+        txCount: 0, 
+        activeDays: 0, 
+        activeWeeks: 0, 
+        activeMonths: 0, 
+        score: 0 
+      });
       setHistory([]);
       return;
     }
@@ -53,7 +67,10 @@ export function useOmniPositions(address: string | null) {
           provider.getTransactionCount(validAddress).catch(() => 0)
         ]);
 
-        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(30, Math.ceil(txCount / 1.5))) : 0;
+        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(180, Math.ceil(txCount / 1.2))) : 0;
+        const activeWeeks = Math.ceil(activeDaysCount / 7);
+        const activeMonths = Math.ceil(activeDaysCount / 30);
+        const engagementScore = (txCount * 10) + (activeDaysCount * 50) + (activePositions.length * 500);
 
         setBalances({
           USDC: ethers.formatUnits(usdcBal, TOKENS.USDC.decimals),
@@ -64,7 +81,10 @@ export function useOmniPositions(address: string | null) {
         setExtraData({
           gasSpent: (txCount * 0.045).toFixed(2),
           txCount: txCount,
-          activeDays: activeDaysCount
+          activeDays: activeDaysCount,
+          activeWeeks: activeWeeks,
+          activeMonths: activeMonths,
+          score: engagementScore
         });
 
         const activePositions: Position[] = [];

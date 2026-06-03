@@ -134,11 +134,30 @@ export default function Home() {
                </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <BalanceCard label="Net Worth" value={`$${chartData.reduce((a, b) => a + b.value, 0).toLocaleString()}`} trend="+12.5%" isLoading={isLoading} />
-              <BalanceCard label="Gas Burned" value={`${extraData.gasSpent}`} symbol="USDC" isLoading={isLoading} trend="Total Fees" />
+              <BalanceCard label="Engagement Score" value={`${extraData.score?.toLocaleString()}`} symbol="PTS" isLoading={isLoading} trend="Rank A" />
+              <BalanceCard label="Gas Burned" value={`${extraData.gasSpent}`} symbol="USDC" isLoading={isLoading} />
               <BalanceCard label="TX Count" value={`${extraData.txCount}`} symbol="Ops" isLoading={isLoading} />
             </div>
+
+            <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+               <div className="arc-glass rounded-2xl p-6 border border-white/5 flex flex-col items-center text-center">
+                  <span className="text-[10px] font-black uppercase text-white/20 mb-2 tracking-widest">Active Days</span>
+                  <span className="text-3xl font-black text-blue-500">{extraData.activeDays}</span>
+                  <span className="text-[9px] font-bold text-white/40 mt-1 uppercase">Interactions</span>
+               </div>
+               <div className="arc-glass rounded-2xl p-6 border border-white/5 flex flex-col items-center text-center">
+                  <span className="text-[10px] font-black uppercase text-white/20 mb-2 tracking-widest">Active Weeks</span>
+                  <span className="text-3xl font-black text-white">{extraData.activeWeeks}</span>
+                  <span className="text-[9px] font-bold text-white/40 mt-1 uppercase">Consistency</span>
+               </div>
+               <div className="arc-glass rounded-2xl p-6 border border-white/5 flex flex-col items-center text-center">
+                  <span className="text-[10px] font-black uppercase text-white/20 mb-2 tracking-widest">Active Months</span>
+                  <span className="text-3xl font-black text-white">{extraData.activeMonths}</span>
+                  <span className="text-[9px] font-bold text-white/40 mt-1 uppercase">Longevity</span>
+               </div>
+            </section>
 
             <section className="arc-glass rounded-3xl p-8 border border-white/5 overflow-hidden">
                <div className="flex justify-between items-center mb-8">
