@@ -63,6 +63,14 @@ Visit [http://localhost:3000](http://localhost:3000) to see the terminal.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 🌐 Ecosystem Integration
+
+This dashboard is built specifically for the [Arc Network](https://arc.network/) community. 
+
+- **Official Website:** [https://arc.network/](https://arc.network/)
+- **Network Explorer:** [ArcScan](https://testnet.arcscan.app)
+- **Official X (Twitter):** [@ArcOnEVM](https://x.com/ArcOnEVM)
+
 ---
 
-*Built for the Arc Community.*
+*Built for the Arc Community by [Juniorj87](https://github.com/Juniorj87).*
