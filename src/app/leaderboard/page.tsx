@@ -3,6 +3,7 @@
 import { useWallet } from '@/hooks/useWallet';
 import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { truncateAddress, cn } from '@/lib/utils';
+import { ethers } from 'ethers';
 import { 
   ShieldCheck, Trophy, Zap, Search, ArrowUpRight, TrendingUp, Info, User, Globe, ChevronDown, Share2, Download, Layers
 } from 'lucide-react';
