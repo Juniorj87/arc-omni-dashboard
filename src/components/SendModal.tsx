@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { X, Send, ArrowRight, ShieldCheck, Zap, AlertCircle, CheckCircle2, Search } from 'lucide-react';
+import { X, Send, ArrowRight, ShieldCheck, Zap, Search, CheckCircle2 } from 'lucide-react';
 import { TOKENS, ARC_NETWORK } from '@/lib/constants';
 import { ERC20_ABI } from '@/lib/abis';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,6 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
   const [txHash, setTxHash] = useState('');
   const [userBalance, setUserBalance] = useState('0.00');
 
-  // Fetch balance when token or address changes
   useEffect(() => {
     async function fetchBal() {
        if (!address || !isOpen) return;
@@ -25,15 +24,26 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
           const tokenData = token === 'USDC' ? TOKENS.USDC : TOKENS.EURC;
           const contract = new ethers.Contract(tokenData.address, ERC20_ABI, rpcProvider);
           const bal = await contract.balanceOf(address);
-          setUserBalance(ethers.formatUnits(bal, tokenData.decimals));
+          const formatted = ethers.formatUnits(bal, tokenData.decimals);
+          console.log(`[SendModal] Fetched balance for ${token}: ${formatted}`);
+          setUserBalance(formatted);
        } catch (e) {
-          console.error("Balance fetch error", e);
+          console.error("[SendModal] Balance fetch error:", e);
+          setUserBalance('0.00');
        }
     }
     fetchBal();
   }, [token, address, isOpen]);
 
+  const handleMax = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("[SendModal] MAX clicked, value:", userBalance);
+    setAmount(userBalance);
+  };
+
   const handleSend = async () => {
+    console.log("[SendModal] Authorize Transmission clicked");
     const eth = (window as any).ethereum;
     if (!eth) {
        alert("No wallet detected. Please install MetaMask or Rabby.");
@@ -47,14 +57,14 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
 
     const targetAddr = recipient.trim();
     if (!ethers.isAddress(targetAddr)) {
-       alert("Invalid destination address.");
+       alert("Invalid destination address format.");
        return;
     }
 
     setStatus('loading');
     try {
-      // Force static network to bypass ENS name resolution attempts
-      const browserProvider = new ethers.BrowserProvider(eth, undefined, { staticNetwork: true });
+      // Force static network 5042002 to bypass ENS
+      const browserProvider = new ethers.BrowserProvider(eth, 5042002);
       const signer = await browserProvider.getSigner();
       
       const tokenData = token === 'USDC' ? TOKENS.USDC : TOKENS.EURC;
@@ -62,11 +72,13 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
       
       const amountToValue = ethers.parseUnits(amount, tokenData.decimals);
       
-      console.log(`Sending ${amount} ${token} to ${targetAddr}`);
+      console.log(`[SendModal] Attempting transfer: ${amount} ${token} to ${targetAddr}`);
       const tx = await contract.transfer(targetAddr, amountToValue);
+      console.log("[SendModal] TX Hash received:", tx.hash);
       setTxHash(tx.hash);
       
       await tx.wait();
+      console.log("[SendModal] TX confirmed");
       setStatus('success');
       
       setTimeout(() => {
@@ -74,12 +86,12 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
         setStatus('idle');
         setRecipient('');
         setAmount('');
-      }, 4000);
+      }, 5000);
     } catch (e: any) {
-      console.error("Send Error Details:", e);
+      console.error("[SendModal] Critical Send Error:", e);
       let msg = e.message || "Unknown error";
       if (e.code === 'ACTION_REJECTED') msg = "User rejected the transaction.";
-      if (e.code === 'INSUFFICIENT_FUNDS') msg = "Insufficient gas (ARC) for transaction.";
+      if (e.info && e.info.error) msg = e.info.error.message;
       
       alert(`Transmission Failed: ${msg}`);
       setStatus('error');
@@ -109,7 +121,7 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
                      <Send className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                     <h2 className="text-4xl font-black tracking-tighter uppercase italic">Transfer</h2>
+                     <h2 className="text-4xl font-black tracking-tighter uppercase italic text-white">Transfer</h2>
                      <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.3em]">Arc L1 Secure Asset Gateway</p>
                   </div>
                </div>
@@ -170,7 +182,7 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
                        <label className="text-[10px] font-black uppercase text-white/30 tracking-[0.3em]">Payload Magnitude</label>
                        <div className="text-right">
                           <p className="text-[9px] font-black text-white/10 uppercase tracking-widest mb-1">Available</p>
-                          <p className="text-xs font-black text-white/40 font-mono">{parseFloat(userBalance).toFixed(2)} {token}</p>
+                          <p className="text-xs font-black text-white/40 font-mono italic">{parseFloat(userBalance).toFixed(2)} {token}</p>
                        </div>
                     </div>
                     <div className="relative group">
@@ -179,8 +191,9 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
                          className="w-full bg-white/5 border border-white/10 rounded-3xl py-8 px-10 text-5xl font-black font-mono focus:outline-none focus:border-blue-500/50 transition-all text-white placeholder:text-white/5 shadow-inner"
                        />
                        <button 
-                         onClick={() => setAmount(userBalance)}
-                         className="absolute right-10 top-1/2 -translate-y-1/2 px-4 py-2 bg-white/10 border border-white/10 rounded-xl text-[10px] font-black text-white/60 hover:text-white hover:bg-white/20 transition-all active:scale-95"
+                         type="button"
+                         onClick={handleMax}
+                         className="absolute right-10 top-1/2 -translate-y-1/2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-xl text-[10px] font-black text-blue-400 hover:bg-blue-500 hover:text-white transition-all active:scale-95 z-20"
                        >
                          MAX
                        </button>
