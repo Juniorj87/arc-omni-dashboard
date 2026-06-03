@@ -29,6 +29,14 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
       const tokenData = token === 'USDC' ? TOKENS.USDC : TOKENS.EURC;
       const contract = new ethers.Contract(tokenData.address, ERC20_ABI, signer);
       
+      // Clean recipient address
+      const targetAddr = recipient.trim();
+      if (!ethers.isAddress(targetAddr)) {
+         alert("Invalid recipient address format.");
+         setStatus('error');
+         return;
+      }
+
       // Verification before send
       const userBal = await contract.balanceOf(address);
       const amountToValue = ethers.parseUnits(amount, tokenData.decimals);
@@ -39,8 +47,8 @@ export function SendModal({ isOpen, onClose, address }: { isOpen: boolean; onClo
          return;
       }
 
-      console.log(`Attempting to send ${amount} ${token} to ${recipient}`);
-      const tx = await contract.transfer(recipient, amountToValue);
+      console.log(`Attempting to send ${amount} ${token} to ${targetAddr}`);
+      const tx = await contract.transfer(targetAddr, amountToValue);
       setTxHash(tx.hash);
       
       const receipt = await tx.wait();

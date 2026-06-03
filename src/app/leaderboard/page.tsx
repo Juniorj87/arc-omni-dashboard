@@ -24,49 +24,26 @@ export default function LeaderboardPage() {
   const [searchAddress, setSearchAddress] = useState('');
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   
-  const { extraData, positions, isLoading } = useOmniPositions(activeAddress || connectedAddress);
+  const { extraData, positions, isLoading, balances } = useOmniPositions(activeAddress || connectedAddress);
   const [activeTab, setActiveTab] = useState<'rankings' | 'airdrop'>('rankings');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [displayCount, setDisplayCount] = useState(10);
   const shareCardRef = useRef<HTMLDivElement>(null);
 
   // REALISTIC GLOBAL SCORE CALCULATION
-  const currentScore = (extraData.txCount * 150) + (positions.length * 2000) + (extraData.activeDays * 800);
+  const currentScore = extraData.score || 0;
   const currentNetWorth = positions.reduce((a, b) => a + b.valueUsd, 0);
 
   useEffect(() => {
-    // Large Simulated Network State (fair and honest)
-    const baseState: LeaderboardEntry[] = [
-      { address: '0x1c83...a83d', score: 85400, txs: 1200, netWorth: 145000, rank: 1, label: 'Arc Architect' },
-      { address: '0x992a...f411', score: 62100, txs: 850, netWorth: 92000, rank: 2, label: 'Whale' },
-      { address: '0x5511...bc22', score: 48900, txs: 600, netWorth: 61000, rank: 3, label: 'Heavy Farmer' },
-      { address: '0x424fF7f4A7CBB654E5168829C8535be3C0ef2e6c', score: 32000, txs: 410, netWorth: 31000, rank: 4, label: 'Early Adopter' },
-      { address: '0x835B7952dCA28c7528b62a911536BB495cFfb5d0', score: 28400, txs: 320, netWorth: 22000, rank: 5 },
-      { address: '0x71c7...defb', score: 21500, txs: 240, netWorth: 15000, rank: 6 },
-      { address: '0xd4C5363271EB51Cff7C90bcd90d51D1C51057221', score: 18200, txs: 190, netWorth: 12000, rank: 7 },
-    ];
-
-    // Generate random entries for the rest of the network
-    const extraEntries: LeaderboardEntry[] = Array.from({ length: 50 }).map((_, i) => ({
-       address: `0x${Math.random().toString(16).slice(2, 42)}`,
-       score: Math.floor(Math.random() * 15000) + 500,
-       txs: Math.floor(Math.random() * 150) + 5,
-       netWorth: Math.floor(Math.random() * 8000) + 100,
-       rank: i + 8
-    }));
-
-    const allEntries = [...baseState, ...extraEntries].sort((a, b) => b.score - a.score);
-    
-    // Recalculate Ranks
-    const ranked = allEntries.map((e, i) => ({ ...e, rank: i + 1 }));
-    setEntries(ranked);
+    // Initial data load
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchAddress.startsWith('0x') && searchAddress.length === 42) {
-      setActiveAddress(searchAddress);
-      setActiveTab('airdrop');
+    const cleanAddr = searchAddress.trim();
+    if (ethers.isAddress(cleanAddr)) {
+      setActiveAddress(cleanAddr);
+      // Stay on current tab or logic based on intent
     }
   };
 

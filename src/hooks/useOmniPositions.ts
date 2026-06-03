@@ -55,6 +55,8 @@ export function useOmniPositions(address: string | null) {
     const validAddress = address;
 
     async function fetchData() {
+      if (!validAddress || !ethers.isAddress(validAddress)) return;
+      
       setIsLoading(true);
       try {
         const usdcContract = new ethers.Contract(TOKENS.USDC.address, ERC20_ABI, provider);
@@ -69,46 +71,40 @@ export function useOmniPositions(address: string | null) {
 
         const activePositions: Position[] = [];
 
+        // Helper to check LP
+        const checkLp = async (pairAddr: string, protoName: string, label: string, link: string) => {
+           try {
+             const pair = new ethers.Contract(pairAddr, UNISWAP_V2_PAIR_ABI, provider);
+             const lpBal = await pair.balanceOf(validAddress);
+             if (lpBal > 0n) {
+               activePositions.push({
+                 protocol: protoName, name: label, balance: ethers.formatEther(lpBal),
+                 type: 'LP', valueUsd: parseFloat(ethers.formatEther(lpBal)) * 2,
+                 link: link
+               });
+             }
+           } catch (e) {}
+        };
+
         // 1. Achswap
         try {
           const factory = new ethers.Contract(PROTOCOLS.ACHSWAP.factory!, UNISWAP_V2_FACTORY_ABI, provider);
           const pairAddress = await factory.getPair(TOKENS.USDC.address, TOKENS.EURC.address);
           if (pairAddress !== ethers.ZeroAddress) {
-            const pair = new ethers.Contract(pairAddress, UNISWAP_V2_PAIR_ABI, provider);
-            const lpBal = await pair.balanceOf(validAddress);
-            if (lpBal > 0n) {
-              activePositions.push({
-                protocol: 'Achswap', name: 'USDC/EURC LP', balance: ethers.formatEther(lpBal),
-                type: 'LP', valueUsd: parseFloat(ethers.formatEther(lpBal)) * 2,
-                link: `https://achswap.org/pool/${pairAddress}`
-              });
-            }
+             await checkLp(pairAddress, 'Achswap', 'USDC/EURC LP', `https://achswap.org/pool/${pairAddress}`);
           }
         } catch (e) {}
 
-        // 2. DEXs (Uniswap V2 Style)
+        // 2. DEXs
         const knownPairs = [
-           { name: 'PrestoDEX', addr: "0x5794a8284A29493871Fbfa3c4f343D42001424D6", label: 'USDC/EURC' },
-           { name: 'Synthra', addr: "0x74133b5D179a7827e1343a8bF11330603d215634", label: 'ARC/USDC' },
-           { name: 'SimpleSwap', addr: "0x3f5abb205f54596a47fc37134e63b167f1be3e55", label: 'USDC/EURC' }
+           { name: 'PrestoDEX', addr: "0x5794a8284A29493871Fbfa3c4f343D42001424D6", label: 'USDC/EURC', link: 'https://prestodex-arc.vercel.app/' },
+           { name: 'Synthra', addr: "0x74133b5D179a7827e1343a8bF11330603d215634", label: 'ARC/USDC', link: 'https://app.synthra.org/' },
+           { name: 'SimpleSwap', addr: "0x3f5abb205f54596a47fc37134e63b167f1be3e55", label: 'USDC/EURC', link: 'https://simple-swap-phi.vercel.app/' }
         ];
 
-        for (const pairData of knownPairs) {
-           try {
-             const pair = new ethers.Contract(pairData.addr, UNISWAP_V2_PAIR_ABI, provider);
-             const lpBal = await pair.balanceOf(validAddress);
-             if (lpBal > 0n) {
-               activePositions.push({
-                 protocol: pairData.name, name: pairData.label, balance: ethers.formatEther(lpBal),
-                 type: 'LP', valueUsd: parseFloat(ethers.formatEther(lpBal)) * 2,
-                 link: pairData.name === 'PrestoDEX' ? 'https://prestodex-arc.vercel.app/' : 
-                       pairData.name === 'Synthra' ? 'https://app.synthra.org/' : 'https://simple-swap-phi.vercel.app/'
-               });
-             }
-           } catch (e) {}
-        }
+        await Promise.all(knownPairs.map(p => checkLp(p.addr, p.name, p.label, p.link)));
 
-        // 3. Curve & Specialty
+        // 3. Curve
         try {
           const curveLp = new ethers.Contract(PROTOCOLS.CURVE.addressProvider, ERC20_ABI, provider);
           const lpBal = await curveLp.balanceOf(validAddress);
