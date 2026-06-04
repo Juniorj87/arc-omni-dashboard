@@ -1,12 +1,11 @@
 'use client';
 
 import { useWallet } from '@/hooks/useWallet';
-import { useOmniPositions } from '@/hooks/useOmniPositions';
+import { useOmniPositions, Position, Transaction } from '@/hooks/useOmniPositions';
 import { truncateAddress, cn } from '@/lib/utils';
 import { 
-  Wallet, Activity, PieChart, Layers, ExternalLink, TrendingUp, 
-  ArrowUpRight, ShieldCheck, Globe, Info, Search, History, Zap, 
-  ExternalLink as LinkIcon, Star, LogOut, Trash2, Clock, Send
+  PieChart, Layers, Globe, Search, History, Zap, 
+  ExternalLink as LinkIcon, Star, LogOut, Clock, Send
 } from 'lucide-react';
 import { PieChart as RePie, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area } from 'recharts';
 import { useState, useEffect } from 'react';
@@ -21,13 +20,14 @@ export default function Home() {
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const { balances, positions, isLoading, extraData, history } = useOmniPositions(activeAddress);
   const [showDemo, setShowDemo] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('arc-favorites');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('arc-favorites');
-    if (saved) setFavorites(JSON.parse(saved));
-  }, []);
 
   const toggleFavorite = (addr: string) => {
     const newFavs = favorites.includes(addr) 
@@ -39,8 +39,11 @@ export default function Home() {
 
   useEffect(() => {
     if (connectedAddress && !activeAddress) {
-      setActiveAddress(connectedAddress);
-      setSearchAddress(connectedAddress);
+      const t = setTimeout(() => {
+        setActiveAddress(connectedAddress);
+        setSearchAddress(connectedAddress);
+      }, 0);
+      return () => clearTimeout(t);
     }
   }, [connectedAddress, activeAddress]);
 
@@ -58,14 +61,14 @@ export default function Home() {
   };
 
   const activeBalances = showDemo ? { USDC: '1240.50', EURC: '850.20', ARC: '12.45' } : balances;
-  const activePositions = showDemo ? [
+  const activePositions: Position[] = showDemo ? [
     { protocol: 'Achswap', name: 'USDC/EURC LP', balance: '150.00', type: 'LP', valueUsd: 300, link: 'https://achswap.org' },
     { protocol: 'Curve', name: 'WUSDC/arcBTC LP', balance: '0.50', type: 'LP', valueUsd: 500, link: 'https://curve.finance' },
     { protocol: 'ArcPerps', name: 'Margin Deposit', balance: '250.00', type: 'Deposit', valueUsd: 250, link: 'https://arcperps.xyz' },
   ] : positions;
 
-  const chartData = activePositions.map(p => ({ name: p.protocol, value: p.valueUsd }));
-  if (parseFloat(activeBalances.USDC || '0') > 0) chartData.push({ name: 'USDC', value: parseFloat(activeBalances.USDC) });
+  const chartData: { name: string; value: number }[] = activePositions.map(p => ({ name: p.protocol, value: p.valueUsd }));
+  if (parseFloat(activeBalances.USDC || '0') > 0) chartData.push({ name: 'USDC', value: parseFloat(activeBalances.USDC || '0') });
   
   const historyData = [{ name: '01', val: 400 }, { name: '02', val: 450 }, { name: '03', val: 420 }, { name: '04', val: 600 }, { name: '05', val: 580 }, { name: '06', val: 800 }];
 
@@ -116,7 +119,7 @@ export default function Home() {
       </header>
 
       {!activeAddress ? (
-        <HeroSection connect={connect} isConnecting={isConnecting} favorites={favorites} onSelect={setActiveAddress} />
+        <HeroSection connect={connect} isConnecting={isConnecting} favorites={favorites} onSelect={(addr) => setActiveAddress(addr)} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
@@ -135,7 +138,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <BalanceCard label="Net Worth" value={`$${chartData.reduce((a, b) => a + b.value, 0).toLocaleString()}`} trend="+12.5%" isLoading={isLoading} />
+              <BalanceCard label="Net Worth" value={`$${chartData.reduce((acc: number, item: { value: number }) => acc + item.value, 0).toLocaleString()}`} trend="+12.5%" isLoading={isLoading} />
               <BalanceCard label="Engagement Score" value={`${extraData.score?.toLocaleString()}`} symbol="PTS" isLoading={isLoading} trend="Rank A" />
               <BalanceCard label="Gas Burned" value={`${extraData.gasSpent}`} symbol="USDC" isLoading={isLoading} />
               <BalanceCard label="TX Count" value={`${extraData.txCount}`} symbol="Ops" isLoading={isLoading} />
@@ -252,7 +255,7 @@ export default function Home() {
                 Activity Timeline
               </h3>
               <div className="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
-                 {history.map((tx, i) => (
+                 {history.map((tx: Transaction, i: number) => (
                    <div key={i} className="relative pl-8 group">
                       <div className="absolute left-[5px] top-1.5 w-1.5 h-1.5 rounded-full bg-blue-500/20 group-hover:bg-blue-500 transition-colors" />
                       <p className="text-xs font-bold text-white/80">{tx.method}</p>
@@ -315,7 +318,14 @@ export default function Home() {
   );
 }
 
-function HeroSection({ connect, isConnecting, favorites, onSelect }: any) {
+interface HeroSectionProps {
+  connect: () => Promise<void>;
+  isConnecting: boolean;
+  favorites: string[];
+  onSelect: (addr: string) => void;
+}
+
+function HeroSection({ connect, isConnecting, favorites, onSelect }: HeroSectionProps) {
   return (
     <div className="h-[60vh] flex flex-col items-center justify-center text-center px-4">
       <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mb-10 backdrop-blur-xl animate-pulse">
@@ -354,7 +364,15 @@ function HeroSection({ connect, isConnecting, favorites, onSelect }: any) {
   )
 }
 
-function BalanceCard({ label, value, symbol, isLoading, trend }: any) {
+interface BalanceCardProps {
+  label: string;
+  value: string | number;
+  symbol?: string;
+  isLoading?: boolean;
+  trend?: string;
+}
+
+function BalanceCard({ label, value, symbol, isLoading, trend }: BalanceCardProps) {
   return (
     <div className="arc-glass rounded-2xl p-6 border border-white/5 space-y-3">
       <div className="flex justify-between items-center">

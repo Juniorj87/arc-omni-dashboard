@@ -1,13 +1,13 @@
 'use client';
 
 import { useWallet } from '@/hooks/useWallet';
-import { useOmniPositions } from '@/hooks/useOmniPositions';
+import { useOmniPositions, Position } from '@/hooks/useOmniPositions';
 import { truncateAddress, cn } from '@/lib/utils';
 import { ethers } from 'ethers';
 import { 
-  ShieldCheck, Trophy, Zap, Search, User, ChevronDown, Share2, Download, Layers
+  ShieldCheck, Trophy, Search, User, ChevronDown, Share2, Layers
 } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { toPng } from 'html-to-image';
 
@@ -26,13 +26,13 @@ export default function LeaderboardPage() {
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   
   const currentTarget = activeAddress || connectedAddress;
-  const { extraData, positions, balances } = useOmniPositions(currentTarget);
+  const { extraData, positions } = useOmniPositions(currentTarget);
   const [activeTab, setActiveTab] = useState<'rankings' | 'airdrop'>('rankings');
   const [displayCount, setDisplayCount] = useState(10);
   const shareCardRef = useRef<HTMLDivElement>(null);
 
   const currentScore = extraData.score || 0;
-  const currentNetWorth = positions.reduce((a, b) => a + b.valueUsd, 0);
+  const currentNetWorth = positions.reduce((acc: number, pos: Position) => acc + pos.valueUsd, 0);
 
   // PRE-CONFIGURED TOP WHALES
   const topTiers: LeaderboardEntry[] = useMemo(() => [

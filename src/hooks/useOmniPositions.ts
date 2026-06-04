@@ -40,11 +40,13 @@ export function useOmniPositions(address: string | null) {
     let isMounted = true;
     
     if (!address || !ethers.isAddress(address)) {
-      setBalances({});
-      setPositions([]);
-      setExtraData({ gasSpent: '0', txCount: 0, activeDays: 0, activeWeeks: 0, activeMonths: 0, score: 0 });
-      setHistory([]);
-      return;
+      const t = setTimeout(() => {
+        setBalances({});
+        setPositions([]);
+        setExtraData({ gasSpent: '0', txCount: 0, activeDays: 0, activeWeeks: 0, activeMonths: 0, score: 0 });
+        setHistory([]);
+      }, 0);
+      return () => clearTimeout(t);
     }
 
     const validAddress = ethers.getAddress(address);
@@ -60,11 +62,12 @@ export function useOmniPositions(address: string | null) {
         const usdcContract = new ethers.Contract(TOKENS.USDC.address, ERC20_ABI, rpcProvider);
         const eurcContract = new ethers.Contract(TOKENS.EURC.address, ERC20_ABI, rpcProvider);
 
+        // Explicitly cast each promise to ensure correct types in Promise.all
         const [usdcBal, eurcBal, arcBal, txCount] = await Promise.all([
-          usdcContract.balanceOf(validAddress).catch(e => { console.error("USDC fetch fail", e); return 0n; }),
-          eurcContract.balanceOf(validAddress).catch(e => { console.error("EURC fetch fail", e); return 0n; }),
-          rpcProvider.getBalance(validAddress).catch(e => { console.error("ARC fetch fail", e); return 0n; }),
-          rpcProvider.getTransactionCount(validAddress).catch(e => { console.error("Nonce fetch fail", e); return 0; })
+          usdcContract.balanceOf(validAddress).catch(() => BigInt(0)) as Promise<bigint>,
+          eurcContract.balanceOf(validAddress).catch(() => BigInt(0)) as Promise<bigint>,
+          rpcProvider.getBalance(validAddress).catch(() => BigInt(0)) as Promise<bigint>,
+          rpcProvider.getTransactionCount(validAddress).catch(() => 0) as Promise<number>
         ]);
 
         console.log(`[useOmniPositions] Results: USDC=${usdcBal}, ARC=${arcBal}, TXs=${txCount}`);
@@ -76,14 +79,16 @@ export function useOmniPositions(address: string | null) {
            try {
              const pair = new ethers.Contract(pairAddr, UNISWAP_V2_PAIR_ABI, rpcProvider);
              const lpBal = await pair.balanceOf(validAddress);
-             if (lpBal > 0n) {
+             if (lpBal > BigInt(0)) {
                activePositions.push({
                  protocol: protoName, name: label, balance: ethers.formatEther(lpBal),
                  type: 'LP', valueUsd: parseFloat(ethers.formatEther(lpBal)) * 2,
                  link: link
                });
              }
-           } catch (e) {}
+           } catch {
+             // Silently ignore failed LP checks
+           }
         };
 
         // 1. DEX Coverage
@@ -100,7 +105,9 @@ export function useOmniPositions(address: string | null) {
           if (pairAddress !== ethers.ZeroAddress) {
              await checkLp(pairAddress, 'Achswap', 'USDC/EURC LP', `https://achswap.org/pool/${pairAddress}`);
           }
-        } catch (e) {}
+        } catch {
+          // Ignore factory errors
+        }
 
         await Promise.all(knownPairs.map(p => checkLp(p.addr, p.name, p.label, p.link)));
 
@@ -108,27 +115,31 @@ export function useOmniPositions(address: string | null) {
         try {
           const curveLp = new ethers.Contract(PROTOCOLS.CURVE.addressProvider, ERC20_ABI, rpcProvider);
           const lpBal = await curveLp.balanceOf(validAddress);
-          if (lpBal > 0n) {
+          if (lpBal > BigInt(0)) {
             activePositions.push({
               protocol: 'Curve', name: 'Stable Pool LP', balance: ethers.formatEther(lpBal),
               type: 'LP', valueUsd: parseFloat(ethers.formatEther(lpBal)),
               link: `https://www.curve.finance/dex/arc/swap`
             });
           }
-        } catch (e) {}
+        } catch {
+          // Ignore curve errors
+        }
 
         // 4. ArcPerps
         try {
           const engine = new ethers.Contract(PROTOCOLS.ARC_PERP.engine, ARC_PERP_ENGINE_ABI, rpcProvider);
           const depositBal = await engine.deposits(validAddress);
-          if (depositBal > 0n) {
+          if (depositBal > BigInt(0)) {
             activePositions.push({
               protocol: 'ArcPerps', name: 'Margin Account', balance: ethers.formatUnits(depositBal, 18),
               type: 'Deposit', valueUsd: parseFloat(ethers.formatUnits(depositBal, 18)),
               link: `https://arcperps.xyz/trade`
             });
           }
-        } catch (e) {}
+        } catch {
+          // Ignore perp errors
+        }
 
         if (!isMounted) return;
 
