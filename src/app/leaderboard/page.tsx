@@ -2,6 +2,7 @@
 
 import { useWallet } from '@/hooks/useWallet';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { truncateAddress, cn } from '@/lib/utils';
 import { ethers } from 'ethers';
 import { Trophy, Search, User, ChevronDown, Share2, Layers, Activity, Globe, Users, BarChart3, AlertCircle, Loader2 } from 'lucide-react';
@@ -9,6 +10,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toPng } from 'html-to-image';
 import { WalletModal } from '@/components/WalletModal';
+import { getRankLabel } from '@/lib/scoring';
 
 export default function LeaderboardPage() {
   const { address: connectedAddress, connectWallet, isConnecting, error: walletError, showModal, setShowModal } = useWallet();
@@ -17,6 +19,7 @@ export default function LeaderboardPage() {
   
   const currentTarget = activeAddress || connectedAddress;
   const { stats, leaderboard, userEntry, isLoading, error: globalError, registerWallet } = useLeaderboard(currentTarget);
+  const { extraData, positions, balances } = useOmniPositions(connectedAddress);
   
   const [activeTab, setActiveTab] = useState<'rankings' | 'card'>('rankings');
   const [displayCount, setDisplayCount] = useState(10);
@@ -30,13 +33,17 @@ export default function LeaderboardPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const input = searchAddress.trim();
-    if (input.length > 0 && ethers.isAddress(input)) {
-      setActiveAddress(input);
-    } else if (input.length > 0) {
+    const input = searchInputRef.current?.value || searchAddress;
+    const clean = input.trim();
+    if (clean.length > 0 && ethers.isAddress(clean)) {
+      setActiveAddress(clean);
+      setSearchAddress(clean);
+    } else if (clean.length > 0) {
       alert("invalid_ethereum_address");
     }
   };
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownload = async () => {
     if (!shareCardRef.current) return;
@@ -47,11 +54,27 @@ export default function LeaderboardPage() {
     link.click();
   };
 
+  // Fallback: compute identity card from client-side data when server has no data
+  const clientScore = extraData.score || 0;
+  const clientNetWorth = positions.reduce((acc, p) => acc + p.valueUsd, 0) + 
+    parseFloat(balances?.USDC || '0') + parseFloat(balances?.EURC || '0');
+  const clientTxCount = extraData.txCount || 0;
+  const displayEntry = userEntry || (connectedAddress ? {
+    address: connectedAddress,
+    score: clientScore,
+    net_worth: clientNetWorth,
+    tx_count: clientTxCount,
+    active_days: extraData.activeDays,
+    rank: 0,
+    percentile: 0,
+    label: getRankLabel(clientScore),
+  } : null);
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       {/* Network Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatBlock label="GLOBAL_NODES" value={stats?.totalWallets || '—'} icon={Users} />
+        <StatBlock label="GLOBAL_NODES" value={stats?.totalWallets || leaderboard.length || '—'} icon={Users} />
         <StatBlock label="CONSENSUS" value={stats?.totalTxCount?.toLocaleString() || '—'} icon={Activity} />
         <StatBlock label="NETWORK_TVL" value={stats ? `$${stats.totalValueUsd.toLocaleString()}` : '—'} icon={Globe} />
         <StatBlock label="AVG_SCORE" value={stats?.avgScore?.toFixed(0) || '—'} icon={BarChart3} />
@@ -84,7 +107,7 @@ export default function LeaderboardPage() {
           <div className="p-4 border-b border-[#1a1a1a]">
             <form onSubmit={handleSearch} className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2a2a2a]" />
-              <input type="text" placeholder="0x... audit_node" value={searchAddress} onChange={(e) => setSearchAddress(e.target.value)} maxLength={42}
+              <input ref={searchInputRef} type="text" placeholder="0x... audit_node" value={searchAddress} onChange={(e) => setSearchAddress(e.target.value)} maxLength={42}
                 className="terminal-input pl-9 pr-4 py-2.5 w-full" />
             </form>
           </div>
@@ -152,6 +175,34 @@ export default function LeaderboardPage() {
                       </tr>
                     );
                   })}
+
+                  {/* Show connected wallet if not in leaderboard */}
+                  {connectedAddress && !leaderboard.find(e => e.address.toLowerCase() === connectedAddress.toLowerCase()) && (
+                    <tr className="bg-[#00ff41]/[0.02] border-l-2 border-[#00ff41]">
+                      <td><span className="font-mono text-[11px] text-[#4a4a4a]">---</span></td>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 border border-[#00ff41]/30 flex items-center justify-center">
+                            <User className="w-3 h-3 text-[#00ff41]" />
+                          </div>
+                          <div>
+                            <p className="font-mono text-[11px] text-[#00ff41]">YOU</p>
+                            <div className="flex gap-1.5 mt-1">
+                              <span className="tag tag-amber text-[7px]">CONNECTED</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className="font-mono text-[9px] text-[#2a2a2a]">—</span></td>
+                      <td className="text-right">
+                        <p className="font-mono text-[11px] text-[#e0e0e0]">${clientNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      </td>
+                      <td className="text-right">
+                        <span className="font-mono text-[11px] text-[#00ff41]">{clientScore.toLocaleString()}</span>
+                        <p className="font-mono text-[8px] text-[#2a2a2a] mt-0.5">{clientTxCount} ops</p>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -179,32 +230,34 @@ export default function LeaderboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase tracking-widest">network_rank</p>
-                    <p className="font-mono text-4xl font-bold text-[#00ff41] glow-green">#{userEntry?.rank || '—'}</p>
+                    <p className="font-mono text-4xl font-bold text-[#00ff41] glow-green">
+                      {displayEntry?.rank ? `#${displayEntry.rank}` : '#—'}
+                    </p>
                   </div>
                 </div>
 
                 <h2 className="font-mono text-3xl font-bold text-[#e0e0e0] mb-6 uppercase">
-                  {userEntry?.label?.split(' ')[0] || 'NODE'}<br/>
-                  <span className="text-[#00ff41]">{userEntry?.label?.split(' ')[1] || 'EXPLORER'}</span>
+                  {displayEntry?.label?.split(' ')[0] || 'NODE'}<br/>
+                  <span className="text-[#00ff41]">{displayEntry?.label?.split(' ')[1] || 'EXPLORER'}</span>
                 </h2>
 
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#00ff41]/30 bg-[#00ff41]/5">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41]" />
-                  <span className="font-mono text-[9px] text-[#00ff41]">{truncateAddress(currentTarget || '')}</span>
+                  <span className="font-mono text-[9px] text-[#00ff41]">{truncateAddress(currentTarget || connectedAddress || '')}</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-6 mt-12 pt-6 border-t border-[#1a1a1a]">
                   <div>
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-1">score</p>
-                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{userEntry?.score.toLocaleString() || '0'}</p>
+                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{(displayEntry?.score || clientScore).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-1">tvl</p>
-                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">${userEntry?.net_worth.toLocaleString() || '0'}</p>
+                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">${(displayEntry?.net_worth || clientNetWorth).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-1">ops</p>
-                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{userEntry?.tx_count || '0'}</p>
+                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{displayEntry?.tx_count || clientTxCount}</p>
                   </div>
                 </div>
               </div>
@@ -214,14 +267,16 @@ export default function LeaderboardPage() {
           <div className="lg:col-span-5 space-y-4">
             <div className="terminal-card p-4">
               <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-2">dominance</p>
-              <p className="font-mono text-2xl font-bold text-[#00ff41]">{userEntry ? (100 - userEntry.percentile).toFixed(1) : '—'}%</p>
+              <p className="font-mono text-2xl font-bold text-[#00ff41]">
+                {displayEntry?.percentile ? (100 - displayEntry.percentile).toFixed(1) : '—'}%
+              </p>
               <div className="h-1 bg-[#1a1a1a] mt-3 overflow-hidden">
-                <div className="h-full bg-[#00ff41]" style={{ width: `${userEntry?.percentile || 0}%` }} />
+                <div className="h-full bg-[#00ff41]" style={{ width: `${displayEntry?.percentile || 0}%` }} />
               </div>
             </div>
             <div className="terminal-card p-4">
               <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-2">epochs_active</p>
-              <p className="font-mono text-2xl font-bold text-[#ffb000]">{userEntry?.active_days || '0'}d</p>
+              <p className="font-mono text-2xl font-bold text-[#ffb000]">{displayEntry?.active_days || extraData.activeDays || 0}d</p>
             </div>
             <button onClick={handleDownload} className="btn-terminal w-full py-4 flex items-center justify-center gap-2">
               <Share2 className="w-4 h-4" />

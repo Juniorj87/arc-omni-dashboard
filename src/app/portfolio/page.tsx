@@ -34,13 +34,13 @@ export default function PortfolioPage() {
 
   const totalValue = parseFloat(balances.USDC || '0') + 
                      parseFloat(balances.EURC || '0') + 
-                     (parseFloat(balances.ARC || '0') * 0.5) + 
+                     parseFloat(balances.ARC || '0') + 
                      positions.reduce((acc, p) => acc + p.valueUsd, 0);
 
   const assets = [
     { symbol: 'USDC', balance: balances.USDC || '0', value: parseFloat(balances.USDC || '0') },
     { symbol: 'EURC', balance: balances.EURC || '0', value: parseFloat(balances.EURC || '0') },
-    { symbol: 'ARC', balance: balances.ARC || '0', value: parseFloat(balances.ARC || '0') * 0.5 },
+    { symbol: 'USDC', balance: balances.ARC || '0', value: parseFloat(balances.ARC || '0'), protocol: 'native' },
     ...positions.map(p => ({ symbol: p.name, balance: p.balance, value: p.valueUsd, protocol: p.protocol }))
   ].filter(a => parseFloat(a.balance) > 0);
 

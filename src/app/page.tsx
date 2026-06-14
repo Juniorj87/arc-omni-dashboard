@@ -25,6 +25,7 @@ export default function Home() {
   const { projects: ecosystemProjects } = useEcosystem(activeAddress);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+  const [chartTimeframe, setChartTimeframe] = useState('1W');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,10 +52,15 @@ export default function Home() {
 
   const totalNetWorth = parseFloat(balances.USDC || '0') + 
                         parseFloat(balances.EURC || '0') + 
-                        (parseFloat(balances.ARC || '0') * 0.5) +
+                        parseFloat(balances.ARC || '0') +
                         positions.reduce((acc, p) => acc + p.valueUsd, 0);
 
-  const asciiChart = generateAsciiChart(history.map((_, i) => 300 + Math.sin(i * 0.8) * 200 + Math.random() * 100));
+  const asciiChart = generateAsciiChart(
+    chartTimeframe === '1D' ? history.slice(-24).map((_, i) => 300 + Math.sin(i * 0.5) * 100 + Math.random() * 50) :
+    chartTimeframe === '1W' ? history.slice(-7).map((_, i) => 400 + Math.sin(i * 0.8) * 200 + Math.random() * 100) :
+    chartTimeframe === '1M' ? Array.from({length: 30}, (_, i) => 350 + Math.sin(i * 0.3) * 250 + Math.random() * 150) :
+    history.map((_, i) => 300 + Math.sin(i * 0.2) * 300 + Math.random() * 200)
+  );
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6 pb-24">
@@ -133,7 +139,7 @@ export default function Home() {
                   </div>
                   <div className="flex gap-1">
                     {['1D', '1W', '1M', 'ALL'].map(t => (
-                      <button key={t} className={cn("px-2 py-1 text-[8px] font-mono border", t === '1W' ? "border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5" : "border-[#1a1a1a] text-[#2a2a2a] hover:text-[#4a4a4a]")}>
+                      <button key={t} onClick={() => setChartTimeframe(t)} className={cn("px-2 py-1 text-[8px] font-mono border", chartTimeframe === t ? "border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5" : "border-[#1a1a1a] text-[#2a2a2a] hover:text-[#4a4a4a]")}>
                         {t}
                       </button>
                     ))}
@@ -160,7 +166,7 @@ export default function Home() {
                     <tbody>
                       <AssetRow symbol="USDC" balance={balances.USDC || '0'} value={parseFloat(balances.USDC || '0')} />
                       <AssetRow symbol="EURC" balance={balances.EURC || '0'} value={parseFloat(balances.EURC || '0')} />
-                      <AssetRow symbol="ARC" balance={balances.ARC || '0'} value={parseFloat(balances.ARC || '0') * 0.5} />
+                      <AssetRow symbol="USDC" balance={balances.ARC || '0'} value={parseFloat(balances.ARC || '0')} protocol="native" />
                       {positions.map((pos, i) => (
                         <AssetRow key={i} symbol={pos.name} balance={pos.balance} value={pos.valueUsd} protocol={pos.protocol} />
                       ))}
