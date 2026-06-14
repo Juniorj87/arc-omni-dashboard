@@ -13,7 +13,7 @@ const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
 ];
 
-// Persistent in-memory store (reset on cold start — use a real DB in production)
+// In-memory store (resets on server restart)
 const leaderboardDb: Array<{
   address: string;
   label?: string;
@@ -81,9 +81,23 @@ export async function GET(request: Request) {
   const address = searchParams.get('address');
 
   try {
-    // Lookup in existing leaderboard (read-only — no mutation)
-    const sorted = [...leaderboardDb].sort((a, b) => b.score - a.score);
+    // If searching for a specific address, fetch on-chain data in real-time
+    let searchedEntry = null;
+    if (address && ethers.isAddress(address)) {
+      const onChainData = await fetchOnChainData(address);
+      if (onChainData) {
+        // Upsert into leaderboard
+        const existingIdx = leaderboardDb.findIndex(e => e.address.toLowerCase() === onChainData.address);
+        if (existingIdx > -1) {
+          leaderboardDb[existingIdx] = { ...leaderboardDb[existingIdx], ...onChainData, last_updated: new Date().toISOString() };
+        } else {
+          leaderboardDb.push({ ...onChainData, last_updated: new Date().toISOString() });
+        }
+        searchedEntry = onChainData;
+      }
+    }
 
+    const sorted = [...leaderboardDb].sort((a, b) => b.score - a.score);
     const total = sorted.length;
     const leaderboard = sorted.map((entry, index) => {
       const rank = index + 1;
@@ -99,7 +113,11 @@ export async function GET(request: Request) {
     };
 
     const userEntry = address
-      ? leaderboard.find(e => e.address.toLowerCase() === address.toLowerCase()) || null
+      ? leaderboard.find(e => e.address.toLowerCase() === address.toLowerCase()) || (searchedEntry ? {
+          ...searchedEntry,
+          rank: leaderboard.findIndex(e => e.address.toLowerCase() === searchedEntry!.address.toLowerCase()) + 1 || total + 1,
+          percentile: 50,
+        } : null)
       : null;
 
     return NextResponse.json({ success: true, stats, leaderboard: leaderboard.slice(0, 50), userEntry });
@@ -109,7 +127,6 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Only accepts an address, computes everything server-side from on-chain data
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -119,18 +136,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid or missing address" }, { status: 400 });
     }
 
-    // Server-side: fetch real on-chain data (no trust in client)
     const onChainData = await fetchOnChainData(address);
     if (!onChainData) {
       return NextResponse.json({ success: false, message: "Could not fetch on-chain data" }, { status: 422 });
     }
 
-    // Upsert into leaderboard with server-computed values
     const existingIdx = leaderboardDb.findIndex(e => e.address.toLowerCase() === onChainData.address);
-    const entry = {
-      ...onChainData,
-      last_updated: new Date().toISOString(),
-    };
+    const entry = { ...onChainData, last_updated: new Date().toISOString() };
 
     if (existingIdx > -1) {
       leaderboardDb[existingIdx] = entry;

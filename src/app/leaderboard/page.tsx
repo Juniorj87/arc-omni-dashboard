@@ -5,9 +5,8 @@ import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { truncateAddress, cn } from '@/lib/utils';
 import { ethers } from 'ethers';
-import { Trophy, Search, User, ChevronDown, Share2, Layers, Activity, Globe, Users, BarChart3, AlertCircle, Loader2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { Trophy, Search, User, Share2, Layers, Activity, Globe, Users, BarChart3, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import { WalletModal } from '@/components/WalletModal';
 import { getRankLabel } from '@/lib/scoring';
@@ -18,20 +17,22 @@ export default function LeaderboardPage() {
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   
   const currentTarget = activeAddress || connectedAddress;
-  const { stats, leaderboard, userEntry, isLoading, error: globalError, registerWallet } = useLeaderboard(currentTarget);
-  const { extraData, positions, balances } = useOmniPositions(connectedAddress);
+  const { stats, leaderboard, userEntry, isLoading, registerWallet } = useLeaderboard(currentTarget);
+  const { extraData, positions, balances, isLoading: positionsLoading } = useOmniPositions(connectedAddress);
   
   const [activeTab, setActiveTab] = useState<'rankings' | 'card'>('rankings');
   const [displayCount, setDisplayCount] = useState(10);
   const shareCardRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Register wallet on connect
   useEffect(() => {
     if (connectedAddress) {
       registerWallet({ address: connectedAddress });
     }
   }, [connectedAddress]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const input = searchInputRef.current?.value || searchAddress;
     const clean = input.trim();
@@ -41,9 +42,7 @@ export default function LeaderboardPage() {
     } else if (clean.length > 0) {
       alert("invalid_ethereum_address");
     }
-  };
-
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  }, [searchAddress]);
 
   const handleDownload = async () => {
     if (!shareCardRef.current) return;
@@ -54,17 +53,20 @@ export default function LeaderboardPage() {
     link.click();
   };
 
-  // Fallback: compute identity card from client-side data when server has no data
+  // Compute identity data from client-side hooks as primary source
+  const clientNetWorth = (parseFloat(balances?.USDC || '0') + parseFloat(balances?.EURC || '0') + parseFloat(balances?.ARC || '0')) + 
+    positions.reduce((acc, p) => acc + p.valueUsd, 0);
   const clientScore = extraData.score || 0;
-  const clientNetWorth = positions.reduce((acc, p) => acc + p.valueUsd, 0) + 
-    parseFloat(balances?.USDC || '0') + parseFloat(balances?.EURC || '0');
   const clientTxCount = extraData.txCount || 0;
+  const clientActiveDays = extraData.activeDays || 0;
+
+  // Use server data if available, otherwise client data
   const displayEntry = userEntry || (connectedAddress ? {
     address: connectedAddress,
     score: clientScore,
     net_worth: clientNetWorth,
     tx_count: clientTxCount,
-    active_days: extraData.activeDays,
+    active_days: clientActiveDays,
     rank: 0,
     percentile: 0,
     label: getRankLabel(clientScore),
@@ -105,10 +107,13 @@ export default function LeaderboardPage() {
         <div className="terminal-card">
           {/* Search */}
           <div className="p-4 border-b border-[#1a1a1a]">
-            <form onSubmit={handleSearch} className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2a2a2a]" />
-              <input ref={searchInputRef} type="text" placeholder="0x... audit_node" value={searchAddress} onChange={(e) => setSearchAddress(e.target.value)} maxLength={42}
-                className="terminal-input pl-9 pr-4 py-2.5 w-full" />
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2a2a2a]" />
+                <input ref={searchInputRef} type="text" placeholder="0x... audit_node" value={searchAddress} onChange={(e) => setSearchAddress(e.target.value)} maxLength={42}
+                  className="terminal-input pl-9 pr-4 py-2.5 w-full" />
+              </div>
+              <button type="submit" className="btn-terminal px-4">scan</button>
             </form>
           </div>
 
@@ -176,7 +181,7 @@ export default function LeaderboardPage() {
                     );
                   })}
 
-                  {/* Show connected wallet if not in leaderboard */}
+                  {/* Show connected wallet row if not already in leaderboard */}
                   {connectedAddress && !leaderboard.find(e => e.address.toLowerCase() === connectedAddress.toLowerCase()) && (
                     <tr className="bg-[#00ff41]/[0.02] border-l-2 border-[#00ff41]">
                       <td><span className="font-mono text-[11px] text-[#4a4a4a]">---</span></td>
@@ -186,9 +191,10 @@ export default function LeaderboardPage() {
                             <User className="w-3 h-3 text-[#00ff41]" />
                           </div>
                           <div>
-                            <p className="font-mono text-[11px] text-[#00ff41]">YOU</p>
+                            <p className="font-mono text-[11px] text-[#00ff41]">YOU ({truncateAddress(connectedAddress)})</p>
                             <div className="flex gap-1.5 mt-1">
                               <span className="tag tag-amber text-[7px]">CONNECTED</span>
+                              {displayEntry?.label && <span className="tag tag-green text-[7px]">{displayEntry.label}</span>}
                             </div>
                           </div>
                         </div>
@@ -231,7 +237,7 @@ export default function LeaderboardPage() {
                   <div className="text-right">
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase tracking-widest">network_rank</p>
                     <p className="font-mono text-4xl font-bold text-[#00ff41] glow-green">
-                      {displayEntry?.rank ? `#${displayEntry.rank}` : '#—'}
+                      {displayEntry?.rank && displayEntry.rank > 0 ? `#${displayEntry.rank}` : '#—'}
                     </p>
                   </div>
                 </div>
@@ -249,15 +255,15 @@ export default function LeaderboardPage() {
                 <div className="grid grid-cols-3 gap-6 mt-12 pt-6 border-t border-[#1a1a1a]">
                   <div>
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-1">score</p>
-                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{(displayEntry?.score || clientScore).toLocaleString()}</p>
+                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{clientScore.toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-1">tvl</p>
-                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">${(displayEntry?.net_worth || clientNetWorth).toLocaleString()}</p>
+                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">${clientNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div>
                     <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-1">ops</p>
-                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{displayEntry?.tx_count || clientTxCount}</p>
+                    <p className="font-mono text-xl font-bold text-[#e0e0e0]">{clientTxCount}</p>
                   </div>
                 </div>
               </div>
@@ -268,7 +274,7 @@ export default function LeaderboardPage() {
             <div className="terminal-card p-4">
               <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-2">dominance</p>
               <p className="font-mono text-2xl font-bold text-[#00ff41]">
-                {displayEntry?.percentile ? (100 - displayEntry.percentile).toFixed(1) : '—'}%
+                {displayEntry?.percentile && displayEntry.percentile > 0 ? (100 - displayEntry.percentile).toFixed(1) : '—'}%
               </p>
               <div className="h-1 bg-[#1a1a1a] mt-3 overflow-hidden">
                 <div className="h-full bg-[#00ff41]" style={{ width: `${displayEntry?.percentile || 0}%` }} />
@@ -276,7 +282,7 @@ export default function LeaderboardPage() {
             </div>
             <div className="terminal-card p-4">
               <p className="font-mono text-[8px] text-[#2a2a2a] uppercase mb-2">epochs_active</p>
-              <p className="font-mono text-2xl font-bold text-[#ffb000]">{displayEntry?.active_days || extraData.activeDays || 0}d</p>
+              <p className="font-mono text-2xl font-bold text-[#ffb000]">{clientActiveDays}d</p>
             </div>
             <button onClick={handleDownload} className="btn-terminal w-full py-4 flex items-center justify-center gap-2">
               <Share2 className="w-4 h-4" />
