@@ -6,12 +6,13 @@ import { truncateAddress, cn } from '@/lib/utils';
 import { 
   PieChart as PieChartIcon, Search, Zap, 
   ExternalLink, LogOut, Send, 
-  Wallet, Shield, ChevronRight, Activity, RefreshCcw, Globe, Trophy
+  Wallet, Shield, ChevronRight, Activity, RefreshCcw, Globe, Trophy, Terminal
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area } from 'recharts';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SendModal } from '@/components/SendModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ffffff', '#a1a1aa'];
 
@@ -19,15 +20,13 @@ export default function Home() {
   const { address: connectedAddress, connect, disconnect, isConnecting } = useWallet();
   const [searchInput, setSearchAddress] = useState('');
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
-  const { balances, positions, extraData, history } = useOmniPositions(activeAddress);
+  const { balances, positions, extraData, history, isLoading } = useOmniPositions(activeAddress);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
 
   useEffect(() => {
     if (connectedAddress && !activeAddress) {
-      setTimeout(() => {
-        setActiveAddress(connectedAddress);
-        setSearchAddress(connectedAddress);
-      }, 0);
+      setActiveAddress(connectedAddress);
+      setSearchAddress(connectedAddress);
     }
   }, [connectedAddress, activeAddress]);
 
@@ -49,11 +48,23 @@ export default function Home() {
     { name: 'Sun', val: 750 }
   ];
 
+  // REAL ECOSYSTEM PROJECTS FROM ARC_CONFIG
+  const ecosystemProjects = [
+    { name: 'Achswap', desc: 'Native AMM Dex', url: 'https://achswap.org/swap' },
+    { name: 'Xylonet', desc: 'Liquidity Layer', url: 'https://www.xylonet.xyz/swap' },
+    { name: 'Synthra', desc: 'Synthetic Assets', url: 'https://app.synthra.org/#/swap' },
+    { name: 'Arc Bridge', desc: 'Cross-chain Link', url: 'https://arc-bridge.vercel.app/' },
+    { name: 'SimpleSwap', desc: 'Atomic Swaps', url: 'https://simple-swap-phi.vercel.app/' },
+    { name: 'KudiArc', desc: 'Yield Aggregator', url: 'https://kudiarc.xyz/yield' }
+  ];
+
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-8 pb-24">
-      <div className="flex flex-col lg:flex-row justify-between items-center gap-6 pb-8 border-b border-white/5">
+    <div className="p-8 max-w-[1600px] mx-auto space-y-8 pb-24 relative">
+      
+      {/* Search & Profile Bar */}
+      <div className="flex flex-col lg:flex-row justify-between items-center gap-6 pb-8 border-b border-white/5 relative z-20">
         <div className="relative w-full lg:max-w-xl group">
-           <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-blue-500 transition-colors" />
+           <Search className={cn("absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors", isLoading ? "text-blue-500 animate-pulse" : "text-white/20 group-focus-within:text-blue-500")} />
            <form onSubmit={handleSearch}>
              <input 
                type="text" 
@@ -80,7 +91,7 @@ export default function Home() {
             <button 
               onClick={connect} 
               disabled={isConnecting}
-              className="px-8 py-3.5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all"
+              className="px-8 py-3.5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5"
             >
               {isConnecting ? 'Linking...' : 'Connect Identity'}
             </button>
@@ -89,7 +100,8 @@ export default function Home() {
       </div>
 
       {activeAddress ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-20">
+          
           <div className="lg:col-span-8 space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
                <KpiCard label="Portfolio Value" value={`$${totalNetWorth.toLocaleString()}`} icon={Wallet} color="blue" trend="+8.4%" />
@@ -144,15 +156,18 @@ export default function Home() {
                </div>
                <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
                   <h4 className="text-[10px] font-black uppercase text-white/20 tracking-[0.3em] mb-8">Ecosystem Presence</h4>
-                  <div className="space-y-4">
-                     {['Achswap', 'Curve', 'ArcPerps'].map(p => (
-                        <div key={p} className="flex justify-between items-center p-3 bg-white/5 rounded-2xl border border-white/5 group hover:border-blue-500/30 transition-all cursor-pointer">
+                  <div className="space-y-3">
+                     {ecosystemProjects.map(p => (
+                        <a key={p.name} href={p.url} target="_blank" rel="noreferrer" className="flex justify-between items-center p-3 bg-white/5 rounded-2xl border border-white/5 group hover:border-blue-500/30 transition-all cursor-pointer">
                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center font-bold text-xs">{p[0]}</div>
-                              <span className="text-xs font-bold text-white/60 group-hover:text-white transition-colors">{p}</span>
+                              <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center font-bold text-[10px] uppercase text-white/40">{p.name[0]}</div>
+                              <div>
+                                 <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{p.name}</p>
+                                 <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">{p.desc}</p>
+                              </div>
                            </div>
                            <ChevronRight className="w-4 h-4 text-white/10 group-hover:text-blue-500 transition-all" />
-                        </div>
+                        </a>
                      ))}
                   </div>
                </div>
@@ -191,20 +206,26 @@ export default function Home() {
                </div>
                
                <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-hide">
-                  {history.map((tx, i) => (
-                    <div key={i} className="relative pl-6 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-px before:bg-white/5">
-                       <div className="absolute left-[-3px] top-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                       <div className="flex justify-between items-start mb-1">
-                          <p className="text-xs font-bold text-white tracking-tight">{tx.method}</p>
-                          <span className="text-[10px] font-mono text-white/20">{tx.time}</span>
-                       </div>
-                       <p className="text-[10px] text-white/40 font-mono truncate mb-2">{tx.hash}</p>
-                       <div className="flex items-center gap-2">
-                          <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-green-500/10 text-green-500 rounded">Confirmed</span>
-                          <ExternalLink className="w-3 h-3 text-white/10" />
-                       </div>
-                    </div>
-                  ))}
+                  <AnimatePresence mode="popLayout">
+                    {history.map((tx, i) => (
+                      <motion.div 
+                        key={`${tx.hash}-${i}`}
+                        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                        className="relative pl-6 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-px before:bg-white/5"
+                      >
+                        <div className="absolute left-[-3px] top-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                        <div className="flex justify-between items-start mb-1">
+                            <p className="text-xs font-bold text-white tracking-tight">{tx.method}</p>
+                            <span className="text-[10px] font-mono text-white/20">{tx.time}</span>
+                        </div>
+                        <p className="text-[10px] text-white/40 font-mono truncate mb-2">{tx.hash}</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-green-500/10 text-green-500 rounded">Confirmed</span>
+                            <ExternalLink className="w-3 h-3 text-white/10" />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                </div>
 
                <Link href="/activity" className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all border border-white/5">
@@ -227,6 +248,12 @@ export default function Home() {
       )}
 
       <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} address={connectedAddress || ''} />
+      
+      {/* Dynamic Network Pulse Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-20">
+         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[150px] rounded-full animate-pulse" />
+         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
     </div>
   );
 }
@@ -303,14 +330,32 @@ function HealthItem({ label }: { label: string }) {
 }
 
 function HeroSection({ connect, isConnecting }: { connect: () => void, isConnecting: boolean }) {
+  const [typedText, setTypedText] = useState('');
+  const fullText = "The Sovereign Portfolio Terminal.";
+  
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      setTypedText(fullText.slice(0, i));
+      i++;
+      if (i > fullText.length) clearInterval(interval);
+    }, 50);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="h-[70vh] flex flex-col items-center justify-center text-center max-w-4xl mx-auto space-y-12">
+    <div className="h-[70vh] flex flex-col items-center justify-center text-center max-w-4xl mx-auto space-y-12 relative z-20">
        <div className="space-y-6">
-          <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter arc-gradient-text uppercase leading-[0.9]">
-             The Sovereign <br /> Portfolio <br /> Terminal.
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/10 border border-blue-500/20 rounded-full mb-4">
+             <Terminal className="w-3 h-3 text-blue-500" />
+             <span className="text-[8px] font-black uppercase text-blue-500 tracking-[0.2em]">System Initialized</span>
+          </div>
+          <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter arc-gradient-text uppercase leading-[0.9] min-h-[1.8em]">
+             {typedText}
           </h1>
           <p className="text-lg text-white/40 font-medium max-w-xl mx-auto leading-relaxed">
-             Hyper-detailed analytics for any address on the Arc Testnet. High-signal insights. Zero noise.
+             Hyper-detailed analytics for any address on the Arc Testnet. <br />
+             <span className="text-blue-500 font-bold">High-signal insights. Zero noise.</span>
           </p>
        </div>
        

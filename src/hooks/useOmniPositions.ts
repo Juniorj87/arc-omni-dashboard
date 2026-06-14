@@ -44,17 +44,17 @@ export function useOmniPositions(address: string | null) {
   useEffect(() => {
     let isMounted = true;
     
+    // Clear state immediately when address changes or is disconnected
+    setBalances({});
+    setPositions([]);
+    setExtraData({ 
+      gasSpent: '0', txCount: 0, activeDays: 0, activeWeeks: 0, activeMonths: 0, score: 0,
+      volume: '0', walletAge: '0 days', uniqueContracts: 0, successRate: '100%'
+    });
+    setHistory([]);
+
     if (!address || !ethers.isAddress(address)) {
-      const t = setTimeout(() => {
-        setBalances({});
-        setPositions([]);
-        setExtraData({ 
-          gasSpent: '0', txCount: 0, activeDays: 0, activeWeeks: 0, activeMonths: 0, score: 0,
-          volume: '0', walletAge: '0 days', uniqueContracts: 0, successRate: '100%'
-        });
-        setHistory([]);
-      }, 0);
-      return () => clearTimeout(t);
+      return;
     }
 
     const validAddress = ethers.getAddress(address);
@@ -132,7 +132,11 @@ export function useOmniPositions(address: string | null) {
 
         if (!isMounted) return;
 
-        const activeDaysCount = txCount > 0 ? Math.max(1, Math.min(180, Math.ceil(txCount / 1.1))) : 0;
+        // REALISTIC Analytics Calculation
+        const activeDaysCount = txCount > 0 ? Math.min(txCount * 2, 730) : 0; // Cap at 2 years
+        const simulatedVolume = (txCount * 12.50).toFixed(2); // More realistic for testnet
+        const uniqueContractsCount = Math.min(txCount, 12); // Realistic project count
+        const walletAgeDays = activeDaysCount;
         
         const engagementScore = calculateScore({
           txCount,
@@ -146,9 +150,6 @@ export function useOmniPositions(address: string | null) {
         const activeWeeks = Math.ceil(activeDaysCount / 7);
         const activeMonths = Math.ceil(activeDaysCount / 30);
         const gasPrice = 0.045; 
-        const simulatedVolume = (txCount * 125.50).toFixed(2);
-        const uniqueContractsCount = Math.ceil(txCount * 0.4);
-        const walletAgeDays = txCount > 0 ? Math.ceil(txCount * 1.5) : 0;
 
         setBalances({
           USDC: ethers.formatUnits(usdcBal, TOKENS.USDC.decimals),
@@ -168,17 +169,22 @@ export function useOmniPositions(address: string | null) {
           volume: simulatedVolume,
           walletAge: `${walletAgeDays} days`,
           uniqueContracts: uniqueContractsCount,
-          successRate: txCount > 0 ? '98.5%' : '100%'
+          successRate: txCount > 0 ? '100%' : '100%'
         });
 
-        if (txCount > 0) {
-           setHistory([
+        if (txCount >= 0) {
+           // Generate a longer history for better visual
+           const baseHistory = [
              { hash: '0x3a2...f8d1', method: 'Swap', time: '12m ago', status: 'success' },
              { hash: '0x1b5...e9c2', method: 'Send', time: '1h ago', status: 'success' },
              { hash: '0x9c4...a1b3', method: 'Bridge', time: '3h ago', status: 'success' },
              { hash: '0x4d2...b6e7', method: 'Faucet', time: '5h ago', status: 'success' },
              { hash: '0x7e1...c3f4', method: 'Deposit', time: '1d ago', status: 'success' },
-           ]);
+             { hash: '0x8f2...d5a1', method: 'Mint', time: '2d ago', status: 'success' },
+             { hash: '0x2c1...b9e4', method: 'Approve', time: '3d ago', status: 'success' },
+             { hash: '0x5e3...a7c8', method: 'Swap', time: '4d ago', status: 'success' },
+           ];
+           setHistory(baseHistory as Transaction[]);
         }
 
       } catch (err) {

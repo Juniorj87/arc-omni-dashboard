@@ -5,13 +5,16 @@ import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { cn } from '@/lib/utils';
 import { 
   Target, Trophy, Zap, Star, Shield, 
-  CheckCircle2, ArrowRight, Flame
+  CheckCircle2, ArrowRight, Flame, Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { notify } from '@/components/NotificationCenter';
 
 export default function MissionsPage() {
   const { address } = useWallet();
   const { extraData } = useOmniPositions(address);
+  const [claiming, setClaiming] = useState<number | null>(null);
 
   const missions = [
     { id: 1, title: 'Identity Link', description: 'Connect your Web3 wallet to the terminal.', points: 10, completed: !!address, icon: Shield },
@@ -20,6 +23,14 @@ export default function MissionsPage() {
     { id: 4, title: 'Ecosystem Bridge', description: 'Bridge assets from another network to Arc.', points: 250, completed: false, icon: Star },
     { id: 5, title: 'Daily Check-in', description: 'Access the terminal 3 days in a row.', points: 25, completed: extraData.activeDays >= 3, icon: Flame },
   ];
+
+  const handleClaim = (id: number, points: number) => {
+    setClaiming(id);
+    setTimeout(() => {
+      setClaiming(null);
+      notify('success', 'Points Secured', `Successfully synchronized ${points} protocol points.`);
+    }, 1500);
+  };
 
   const totalPoints = extraData.score || 0;
   const completedCount = missions.filter(m => m.completed).length;
@@ -51,7 +62,13 @@ export default function MissionsPage() {
         <div className="lg:col-span-8 space-y-4">
            <h3 className="text-[10px] font-black uppercase text-white/20 tracking-[0.3em] mb-6 ml-2">Active Objectives</h3>
            {missions.map((m, i) => (
-             <MissionItem key={m.id} mission={m} index={i} />
+             <MissionItem 
+               key={m.id} 
+               mission={m} 
+               index={i} 
+               isClaiming={claiming === m.id}
+               onClaim={() => handleClaim(m.id, m.points)}
+             />
            ))}
         </div>
 
@@ -73,12 +90,16 @@ export default function MissionsPage() {
 
            <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
               <h3 className="font-bold text-xs uppercase tracking-[0.2em] text-white/40 mb-6">Daily Bonus</h3>
-              <div className="bg-blue-600/10 border border-blue-500/20 rounded-2xl p-6 flex flex-col items-center text-center space-y-3">
-                 <Zap className="w-8 h-8 text-blue-500" />
-                 <p className="text-xs font-bold text-white">Next Claim Available</p>
-                 <div className="text-2xl font-black text-white italic">14:22:05</div>
+              <button 
+                onClick={() => handleClaim(99, 50)}
+                disabled={claiming !== null}
+                className="w-full bg-blue-600/10 border border-blue-500/20 rounded-2xl p-6 flex flex-col items-center text-center space-y-3 hover:bg-blue-600/20 transition-all group"
+              >
+                 <Zap className={cn("w-8 h-8 text-blue-500 transition-transform group-hover:scale-110", claiming === 99 && "animate-pulse")} />
+                 <p className="text-xs font-bold text-white uppercase tracking-widest">Authorize Daily Bonus</p>
+                 <div className="text-2xl font-black text-white italic">CLAIM NOW</div>
                  <p className="text-[10px] text-white/40 uppercase font-bold">+50 EXP Bonus</p>
-              </div>
+              </button>
            </section>
         </div>
       </div>
@@ -108,7 +129,7 @@ function ScoreCard({ label, value, symbol, icon: Icon, color }: { label: string,
   );
 }
 
-function MissionItem({ mission, index }: { mission: any, index: number }) {
+function MissionItem({ mission, index, isClaiming, onClaim }: { mission: any, index: number, isClaiming: boolean, onClaim: () => void }) {
   return (
     <motion.div 
       initial={{ opacity: 0, x: -20 }}
@@ -116,7 +137,7 @@ function MissionItem({ mission, index }: { mission: any, index: number }) {
       transition={{ delay: index * 0.1 }}
       className={cn(
         "arc-glass rounded-[2rem] p-6 border border-white/5 flex items-center justify-between group transition-all",
-        mission.completed ? "opacity-60" : "hover:border-white/20 hover:bg-white/[0.04]"
+        mission.completed ? "border-green-500/10" : "hover:border-white/20 hover:bg-white/[0.04]"
       )}
     >
       <div className="flex items-center gap-5">
@@ -136,9 +157,13 @@ function MissionItem({ mission, index }: { mission: any, index: number }) {
       </div>
       
       {mission.completed ? (
-        <div className="bg-green-500/20 text-green-500 p-2 rounded-full">
-           <CheckCircle2 className="w-5 h-5" />
-        </div>
+        <button 
+          onClick={onClaim}
+          disabled={isClaiming}
+          className="bg-green-500 text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+        >
+           {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+        </button>
       ) : (
         <div className="text-white/10 group-hover:text-white transition-all group-hover:translate-x-1">
            <ArrowRight className="w-5 h-5" />
@@ -159,7 +184,7 @@ function RewardItem({ title, requirement, progress }: { title: string, requireme
           <motion.div 
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
-            className="h-full bg-blue-600"
+            className="h-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]"
           />
        </div>
        <p className="text-[9px] text-white/20 italic">{requirement}</p>

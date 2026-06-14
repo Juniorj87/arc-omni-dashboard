@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-  Menu, X, Layers, Trophy, Zap, Globe, 
+  Menu, X, Layers, Trophy, Globe, 
   Wallet, Activity, LayoutDashboard, Target,
   Settings, ExternalLink, ChevronRight
 } from 'lucide-react';
@@ -25,7 +25,7 @@ export function Navbar() {
 
   const secondaryLinks = [
     { name: 'Wallets', href: '/wallets', icon: Settings },
-    { name: 'Docs', href: '/docs', icon: Globe },
+    { name: 'Docs', href: 'https://github.com/Juniorj87/arc-omni-dashboard', icon: Globe, external: true },
   ];
 
   return (
@@ -100,12 +100,12 @@ export function Navbar() {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-4 px-2">
       <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-white/5 transition-transform hover:scale-105 active:scale-95 cursor-pointer">
          <Layers className="w-7 h-7 text-black" />
       </div>
-      <div>
-        <span className="font-black tracking-tighter text-2xl arc-gradient-text uppercase block leading-none">Arc Omni</span>
+      <div className="overflow-visible">
+        <span className="font-black tracking-tight text-2xl arc-gradient-text uppercase block leading-tight">Arc Omni</span>
         <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.3em]">Protocol v1.5</span>
       </div>
     </div>
@@ -113,15 +113,13 @@ function Logo() {
 }
 
 function NavLink({ link, active, onClick }: { link: any, active: boolean, onClick?: () => void }) {
-  return (
-    <Link 
-      href={link.href}
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-between group p-4 rounded-2xl transition-all duration-300 relative overflow-hidden",
-        active ? "bg-white/5 border border-white/10" : "hover:bg-white/[0.02] border border-transparent"
-      )}
-    >
+  const isExternal = link.external;
+  
+  const content = (
+    <div className={cn(
+      "flex items-center justify-between group p-4 rounded-2xl transition-all duration-300 relative overflow-hidden w-full",
+      active ? "bg-white/5 border border-white/10" : "hover:bg-white/[0.02] border border-transparent"
+    )}>
       <div className="flex items-center gap-4 relative z-10">
         <link.icon className={cn("w-5 h-5 transition-colors", active ? "text-blue-500" : "text-white/30 group-hover:text-white/60")} />
         <span className={cn(
@@ -134,7 +132,27 @@ function NavLink({ link, active, onClick }: { link: any, active: boolean, onClic
       {active && (
         <motion.div layoutId="nav-glow" className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none" />
       )}
-      <ChevronRight className={cn("w-4 h-4 transition-all opacity-0", active ? "opacity-100 text-blue-500 translate-x-0" : "group-hover:opacity-40 -translate-x-2")} />
+      <div className="relative z-10">
+        {isExternal ? (
+          <ExternalLink className="w-3.5 h-3.5 text-white/20 group-hover:text-white/40 transition-colors" />
+        ) : (
+          <ChevronRight className={cn("w-4 h-4 transition-all opacity-0", active ? "opacity-100 text-blue-500 translate-x-0" : "group-hover:opacity-40 -translate-x-2")} />
+        )}
+      </div>
+    </div>
+  );
+
+  if (isExternal) {
+    return (
+      <a href={link.href} target="_blank" rel="noreferrer" onClick={onClick} className="block w-full">
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={link.href} onClick={onClick} className="block w-full">
+      {content}
     </Link>
   );
 }

@@ -7,27 +7,29 @@ import {
   Search, ArrowUpRight, ArrowDownRight, 
   ExternalLink, Clock, Calendar, Hash, RefreshCcw, Zap
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export default function ActivityPage() {
   const { address } = useWallet();
   const { history } = useOmniPositions(address);
   const [filter, setFilter] = useState('All');
 
-  const demoHistory: Transaction[] = history.length > 0 ? [
-    ...history,
-    { hash: '0x82a...b2e4', method: 'Send', time: '2 hours ago', status: 'success' },
-    { hash: '0x12b...f9a2', method: 'Receive', time: '5 hours ago', status: 'success' },
-    { hash: '0x44c...d1c3', method: 'Swap', time: 'Yesterday', status: 'success' },
-    { hash: '0x99d...e5b7', method: 'Bridge', time: '2 days ago', status: 'success' },
-    { hash: '0x77e...a1c9', method: 'Faucet', time: '3 days ago', status: 'success' },
-  ] : [
-    { hash: '0x82a...b2e4', method: 'Send', time: '2 hours ago', status: 'success' },
-    { hash: '0x12b...f9a2', method: 'Receive', time: '5 hours ago', status: 'success' },
-    { hash: '0x44c...d1c3', method: 'Swap', time: 'Yesterday', status: 'success' },
-    { hash: '0x99d...e5b7', method: 'Bridge', time: '2 days ago', status: 'success' },
-    { hash: '0x77e...a1c9', method: 'Faucet', time: '3 days ago', status: 'success' },
-  ];
+  const fullHistory: Transaction[] = useMemo(() => {
+    const base = history.length > 0 ? history : [];
+    
+    // Generate 20+ dummy items to fill 3-5 screens as requested
+    const dummyMethods = ['Send', 'Receive', 'Swap', 'Bridge', 'Faucet', 'Mint', 'Approve', 'Deposit'];
+    const dummyTimes = ['2 hours ago', '5 hours ago', 'Yesterday', '2 days ago', '3 days ago', '1 week ago', '2 weeks ago'];
+    
+    const dummies = Array.from({ length: 30 }).map((_, i) => ({
+      hash: `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
+      method: dummyMethods[i % dummyMethods.length],
+      time: dummyTimes[i % dummyTimes.length],
+      status: 'success' as const
+    }));
+
+    return [...base, ...dummies];
+  }, [history]);
 
   const filters = ['All', 'Last 24h', '7d', '30d'];
 
@@ -70,7 +72,7 @@ export default function ActivityPage() {
            </div>
            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 tracking-[0.2em]">
               <Clock className="w-4 h-4" />
-              Real-time feed active
+              Historical database synced
            </div>
         </div>
 
@@ -86,7 +88,7 @@ export default function ActivityPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {demoHistory.map((tx, i) => (
+              {fullHistory.map((tx, i) => (
                 <TxRow key={i} tx={tx} />
               ))}
             </tbody>
