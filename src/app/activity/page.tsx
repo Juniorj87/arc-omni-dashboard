@@ -5,150 +5,104 @@ import { useOmniPositions, Transaction } from '@/hooks/useOmniPositions';
 import { cn } from '@/lib/utils';
 import { 
   Search, ArrowUpRight, ArrowDownRight, 
-  ExternalLink, Clock, Calendar, Hash, RefreshCcw, Zap
+  ExternalLink, Clock, Hash, RefreshCcw, Zap, Activity
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
 export default function ActivityPage() {
   const { address } = useWallet();
   const { history } = useOmniPositions(address);
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState('all');
 
   const fullHistory: Transaction[] = useMemo(() => {
     const base = history.length > 0 ? history : [];
-    
-    // Generate 20+ dummy items to fill 3-5 screens as requested
-    const dummyMethods = ['Send', 'Receive', 'Swap', 'Bridge', 'Faucet', 'Mint', 'Approve', 'Deposit'];
-    const dummyTimes = ['2 hours ago', '5 hours ago', 'Yesterday', '2 days ago', '3 days ago', '1 week ago', '2 weeks ago'];
-    
+    const dummyMethods = ['send', 'receive', 'swap', 'bridge', 'faucet', 'mint', 'approve', 'deposit'];
+    const dummyTimes = ['2h_ago', '5h_ago', '1d_ago', '2d_ago', '3d_ago', '1w_ago', '2w_ago'];
     const dummies = Array.from({ length: 30 }).map((_, i) => ({
-      hash: `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
+      hash: `0x${Array.from({length: 8}, () => Math.floor(Math.random() * 16).toString(16)).join('')}...${Array.from({length: 4}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       method: dummyMethods[i % dummyMethods.length],
       time: dummyTimes[i % dummyTimes.length],
       status: 'success' as const
     }));
-
     return [...base, ...dummies];
   }, [history]);
 
-  const filters = ['All', 'Last 24h', '7d', '30d'];
-
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic text-white">Activity</h1>
-          <p className="text-xs font-bold text-white/40 uppercase tracking-widest mt-1">On-chain interaction logs</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-           <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
-              {filters.map(f => (
-                <button 
-                  key={f} onClick={() => setFilter(f)}
-                  className={cn(
-                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                    filter === f ? "bg-white text-black shadow-lg" : "text-white/20 hover:text-white/40"
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
-           </div>
-           <button className="p-3 bg-white/5 border border-white/5 rounded-2xl text-white/40 hover:text-white transition-all">
-              <RefreshCcw className="w-5 h-5" />
-           </button>
+    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+      <header className="border border-[#1a1a1a] bg-[#0f0f0f] p-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Activity className="w-4 h-4 text-[#00ff41]" />
+            <h1 className="font-mono text-lg font-bold text-[#00ff41] uppercase tracking-wider">activity</h1>
+            <span className="text-[#2a2a2a]">|</span>
+            <span className="font-mono text-[10px] text-[#2a2a2a]">ON_CHAIN_LOGS</span>
+          </div>
+          <div className="flex gap-1">
+            {['all', '24h', '7d', '30d'].map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={cn("font-mono text-[9px] px-3 py-1.5 border transition-colors uppercase",
+                filter === f ? "border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5" : "border-[#1a1a1a] text-[#2a2a2a] hover:text-[#4a4a4a]"
+              )}>{f}</button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <div className="arc-glass rounded-[2.5rem] border border-white/5 overflow-hidden">
-        <div className="p-8 border-b border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-           <div className="relative w-full md:max-w-xs">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-              <input 
-                type="text" placeholder="Search by Hash / Type..."
-                className="w-full bg-white/5 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-[10px] font-bold uppercase tracking-widest focus:outline-none focus:border-blue-500/30 text-white placeholder:text-white/10"
-              />
-           </div>
-           <div className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 tracking-[0.2em]">
-              <Clock className="w-4 h-4" />
-              Historical database synced
-           </div>
+      <div className="terminal-card">
+        <div className="p-4 border-b border-[#1a1a1a] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Search className="w-3 h-3 text-[#2a2a2a]" />
+            <span className="font-mono text-[9px] text-[#2a2a2a] uppercase">{fullHistory.length} entries</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] pulse-green" />
+            <span className="font-mono text-[8px] text-[#2a2a2a]">synced</span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full terminal-table">
             <thead>
-              <tr className="text-left border-b border-white/5">
-                <th className="px-8 py-5 text-[10px] font-black uppercase text-white/20 tracking-widest">Type</th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase text-white/20 tracking-widest">Magnitude</th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase text-white/20 tracking-widest">Status</th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase text-white/20 tracking-widest">Date / Time</th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase text-white/20 tracking-widest text-right">Hash</th>
+              <tr>
+                <th>type</th>
+                <th>status</th>
+                <th>time</th>
+                <th className="text-right">hash</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody>
               {fullHistory.map((tx, i) => (
-                <TxRow key={i} tx={tx} />
+                <tr key={i} className="group hover:bg-[#00ff41]/[0.01] transition-colors">
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-mono text-[10px] uppercase",
+                        tx.method === 'send' ? "text-[#ff3333]" :
+                        tx.method === 'receive' ? "text-[#00ff41]" :
+                        tx.method === 'swap' ? "text-[#00d4ff]" :
+                        tx.method === 'bridge' ? "text-[#ffb000]" : "text-[#4a4a4a]"
+                      )}>{tx.method}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1 h-1 rounded-full bg-[#00ff41]" />
+                      <span className="font-mono text-[9px] text-[#00ff41] uppercase">confirmed</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="font-mono text-[9px] text-[#2a2a2a]">{tx.time}</span>
+                  </td>
+                  <td className="text-right">
+                    <a href={`https://testnet.arcscan.app/tx/${tx.hash}`} target="_blank" rel="noreferrer"
+                       className="font-mono text-[9px] text-[#00ff41]/60 hover:text-[#00ff41] transition-colors inline-flex items-center gap-1">
+                      {tx.hash.slice(0, 12)}... <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
     </div>
-  );
-}
-
-function TxRow({ tx }: { tx: Transaction }) {
-  const getTypeColor = (method: string) => {
-    switch (method.toLowerCase()) {
-      case 'send': return 'text-red-400 bg-red-400/5';
-      case 'receive': return 'text-green-400 bg-green-400/5';
-      case 'swap': return 'text-blue-400 bg-blue-400/5';
-      case 'bridge': return 'text-purple-400 bg-purple-400/5';
-      case 'faucet': return 'text-yellow-400 bg-yellow-400/5';
-      default: return 'text-white/40 bg-white/5';
-    }
-  };
-
-  return (
-    <tr className="group hover:bg-white/[0.02] transition-colors">
-      <td className="px-8 py-6">
-        <div className="flex items-center gap-3">
-          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", getTypeColor(tx.method))}>
-            {tx.method.toLowerCase() === 'send' && <ArrowUpRight className="w-4 h-4" />}
-            {tx.method.toLowerCase() === 'receive' && <ArrowDownRight className="w-4 h-4" />}
-            {tx.method.toLowerCase() === 'swap' && <RefreshCcw className="w-4 h-4" />}
-            {tx.method.toLowerCase() === 'bridge' && <Hash className="w-4 h-4" />}
-            {tx.method.toLowerCase() === 'faucet' && <Zap className="w-4 h-4" />}
-          </div>
-          <span className="font-bold text-xs text-white uppercase tracking-widest">{tx.method}</span>
-        </div>
-      </td>
-      <td className="px-8 py-6">
-        <p className="text-xs font-black text-white italic">--</p>
-      </td>
-      <td className="px-8 py-6">
-        <div className="flex items-center gap-2">
-           <div className="w-1 h-1 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-           <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Confirmed</span>
-        </div>
-      </td>
-      <td className="px-8 py-6">
-        <div className="flex items-center gap-2 text-white/40">
-           <Calendar className="w-3.5 h-3.5" />
-           <span className="text-[10px] font-bold uppercase tracking-widest">{tx.time}</span>
-        </div>
-      </td>
-      <td className="px-8 py-6 text-right">
-        <a 
-          href={`https://testnet.arcscan.app/tx/${tx.hash}`} 
-          target="_blank" rel="noreferrer"
-          className="inline-flex items-center gap-2 text-[10px] font-mono text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/5 px-3 py-1.5 rounded-lg border border-blue-500/10"
-        >
-          {tx.hash.slice(0, 10)}... <ExternalLink className="w-3 h-3" />
-        </a>
-      </td>
-    </tr>
   );
 }

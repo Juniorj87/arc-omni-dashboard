@@ -13,11 +13,19 @@ const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
 ];
 
-// Seeded leaderboard entries (persistent top wallets)
-const leaderboardDb: Array<{ address: string; label?: string; score: number; tx_count: number; net_worth: number; active_days: number; on_chain?: boolean; last_updated?: string }> = [
-    { address: '0x1c8300000000000000000000000000000000a83d', label: 'Protocol Sentinel', score: 1254000, tx_count: 15400, net_worth: 850000, active_days: 180 },
-    { address: '0x992a00000000000000000000000000000000f411', label: 'Arc Titan', score: 982100, tx_count: 12500, net_worth: 420000, active_days: 150 },
-    { address: '0x551100000000000000000000000000000000bc22', label: 'Heavy Liquidity', score: 748900, tx_count: 8600, net_worth: 210000, active_days: 120 },
+// Persistent in-memory store (reset on cold start — use a real DB in production)
+const leaderboardDb: Array<{
+  address: string;
+  label?: string;
+  score: number;
+  tx_count: number;
+  net_worth: number;
+  active_days: number;
+  last_updated?: string;
+}> = [
+  { address: '0x1c8300000000000000000000000000000000a83d', label: 'Protocol Sentinel', score: 1254000, tx_count: 15400, net_worth: 850000, active_days: 180 },
+  { address: '0x992a00000000000000000000000000000000f411', label: 'Arc Titan', score: 982100, tx_count: 12500, net_worth: 420000, active_days: 150 },
+  { address: '0x551100000000000000000000000000000000bc22', label: 'Heavy Liquidity', score: 748900, tx_count: 8600, net_worth: 210000, active_days: 120 },
 ];
 
 function calculateScore(txCount: number, totalValueUsd: number, activeDays: number, positionsCount: number): number {
@@ -43,10 +51,9 @@ async function fetchOnChainData(address: string) {
     const usdcContract = new ethers.Contract(TOKENS.USDC.address, ERC20_ABI, rpcProvider);
     const eurcContract = new ethers.Contract(TOKENS.EURC.address, ERC20_ABI, rpcProvider);
 
-    const [usdcBal, eurcBal, , txCount] = await Promise.all([
+    const [usdcBal, eurcBal, txCount] = await Promise.all([
       usdcContract.balanceOf(validAddr).catch(() => BigInt(0)),
       eurcContract.balanceOf(validAddr).catch(() => BigInt(0)),
-      rpcProvider.getBalance(validAddr).catch(() => BigInt(0)),
       rpcProvider.getTransactionCount(validAddr).catch(() => 0),
     ]);
 
@@ -63,7 +70,6 @@ async function fetchOnChainData(address: string) {
       net_worth: totalValueUsd,
       active_days: activeDays,
       label: getRankLabel(score),
-      on_chain: true,
     };
   } catch {
     return null;
@@ -71,91 +77,70 @@ async function fetchOnChainData(address: string) {
 }
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const address = searchParams.get('address');
+  const { searchParams } = new URL(request.url);
+  const address = searchParams.get('address');
 
-    try {
-        // If searching for a specific address, fetch on-chain data
-        let searchedEntry = null;
-        if (address && ethers.isAddress(address)) {
-            const onChainData = await fetchOnChainData(address);
-            if (onChainData) {
-                // Upsert into leaderboard
-                const existingIdx = leaderboardDb.findIndex(e => e.address.toLowerCase() === onChainData.address);
-                if (existingIdx > -1) {
-                    leaderboardDb[existingIdx] = { ...leaderboardDb[existingIdx], ...onChainData };
-                } else {
-                    leaderboardDb.push(onChainData);
-                }
-                searchedEntry = onChainData;
-            }
-        }
+  try {
+    // Lookup in existing leaderboard (read-only — no mutation)
+    const sorted = [...leaderboardDb].sort((a, b) => b.score - a.score);
 
-        // Sort by score
-        const sorted = [...leaderboardDb].sort((a, b) => b.score - a.score);
+    const total = sorted.length;
+    const leaderboard = sorted.map((entry, index) => {
+      const rank = index + 1;
+      const percentile = ((total - rank) / total) * 100;
+      return { ...entry, rank, percentile };
+    });
 
-        // Add ranking and percentile
-        const total = sorted.length;
-        const leaderboard = sorted.map((entry, index) => {
-            const rank = index + 1;
-            const percentile = ((total - rank) / total) * 100;
-            return { ...entry, rank, percentile };
-        });
+    const stats = {
+      totalWallets: total,
+      totalTxCount: leaderboardDb.reduce((acc, curr) => acc + (curr.tx_count || 0), 0),
+      totalValueUsd: leaderboardDb.reduce((acc, curr) => acc + (curr.net_worth || 0), 0),
+      avgScore: total > 0 ? leaderboardDb.reduce((acc, curr) => acc + (curr.score || 0), 0) / total : 0,
+    };
 
-        // Network Statistics
-        const stats = {
-            totalWallets: total,
-            totalTxCount: leaderboardDb.reduce((acc, curr) => acc + (curr.tx_count || 0), 0),
-            totalValueUsd: leaderboardDb.reduce((acc, curr) => acc + (curr.net_worth || 0), 0),
-            avgScore: total > 0 ? leaderboardDb.reduce((acc, curr) => acc + (curr.score || 0), 0) / total : 0,
-        };
+    const userEntry = address
+      ? leaderboard.find(e => e.address.toLowerCase() === address.toLowerCase()) || null
+      : null;
 
-        // Specific address lookup
-        const userEntry = address ? leaderboard.find(e => e.address.toLowerCase() === address.toLowerCase()) : null;
-
-        return NextResponse.json({
-            success: true,
-            stats,
-            leaderboard: leaderboard.slice(0, 50),
-            userEntry: userEntry || (searchedEntry ? {
-                ...searchedEntry,
-                rank: leaderboard.findIndex(e => e.address.toLowerCase() === searchedEntry.address.toLowerCase()) + 1 || total + 1,
-                percentile: 50,
-            } : null),
-        });
-    } catch (error) {
-        console.error("[Leaderboard API] GET Error:", error);
-        return NextResponse.json({ success: false, message: "No Global Data Available" }, { status: 503 });
-    }
+    return NextResponse.json({ success: true, stats, leaderboard: leaderboard.slice(0, 50), userEntry });
+  } catch (error) {
+    console.error("[Leaderboard API] GET Error:", error);
+    return NextResponse.json({ success: false, message: "No Global Data Available" }, { status: 503 });
+  }
 }
 
+// POST: Only accepts an address, computes everything server-side from on-chain data
 export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { address, score, tx_count, net_worth, active_days, label } = body;
+  try {
+    const body = await request.json();
+    const { address } = body;
 
-        if (!address) return NextResponse.json({ success: false, message: "Missing address" }, { status: 400 });
-
-        const index = leaderboardDb.findIndex(e => e.address.toLowerCase() === address.toLowerCase());
-        const entry = { 
-            address: address.toLowerCase(), 
-            score, 
-            tx_count, 
-            net_worth, 
-            active_days, 
-            label,
-            last_updated: new Date().toISOString()
-        };
-
-        if (index > -1) {
-            leaderboardDb[index] = { ...leaderboardDb[index], ...entry };
-        } else {
-            leaderboardDb.push(entry);
-        }
-
-        return NextResponse.json({ success: true, message: "Node Registered" });
-    } catch (error) {
-        console.error("[Leaderboard API] POST Error:", error);
-        return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
+    if (!address || !ethers.isAddress(address)) {
+      return NextResponse.json({ success: false, message: "Invalid or missing address" }, { status: 400 });
     }
+
+    // Server-side: fetch real on-chain data (no trust in client)
+    const onChainData = await fetchOnChainData(address);
+    if (!onChainData) {
+      return NextResponse.json({ success: false, message: "Could not fetch on-chain data" }, { status: 422 });
+    }
+
+    // Upsert into leaderboard with server-computed values
+    const existingIdx = leaderboardDb.findIndex(e => e.address.toLowerCase() === onChainData.address);
+    const entry = {
+      ...onChainData,
+      last_updated: new Date().toISOString(),
+    };
+
+    if (existingIdx > -1) {
+      leaderboardDb[existingIdx] = entry;
+    } else {
+      leaderboardDb.push(entry);
+    }
+
+    return NextResponse.json({ success: true, message: "Node Registered" });
+  } catch (error) {
+    console.error("[Leaderboard API] POST Error:", error);
+    return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
+  }
 }

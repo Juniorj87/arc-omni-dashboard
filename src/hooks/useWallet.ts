@@ -10,6 +10,7 @@ interface EthereumProvider {
   removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
   isMetaMask?: boolean;
   isRabby?: boolean;
+  providers?: EthereumProvider[];
 }
 
 export function useWallet() {
@@ -17,36 +18,17 @@ export function useWallet() {
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [walletType, setWalletType] = useState<'metamask' | 'rabby' | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
-  const connect = useCallback(async (type?: 'metamask' | 'rabby') => {
-    if (typeof window === 'undefined') return;
-
-    // Detect Rabby or MetaMask
-    const ethereum = (window as any).ethereum;
-    if (!ethereum) {
-      setError('No Ethereum wallet found. Please install MetaMask or Rabby.');
-      return;
-    }
-
-    let provider = ethereum;
-    
-    // If multiple providers, try to find the requested one
-    if (ethereum.providers && type) {
-      provider = ethereum.providers.find((p: any) => 
-        type === 'rabby' ? p.isRabby : p.isMetaMask
-      ) || ethereum;
-    }
-
-    if (provider.isRabby) setWalletType('rabby');
-    else if (provider.isMetaMask) setWalletType('metamask');
-
+  const connectWithProvider = useCallback(async (provider: EthereumProvider, type: 'metamask' | 'rabby') => {
+    setWalletType(type);
     setIsConnecting(true);
     setError(null);
 
     try {
-      const browserProvider = new ethers.BrowserProvider(provider);
+      const browserProvider = new ethers.BrowserProvider(provider as any);
       const accounts = await browserProvider.send("eth_requestAccounts", []);
-      
+
       const network = await browserProvider.getNetwork();
       if (Number(network.chainId) !== ARC_NETWORK.chainId) {
         try {
@@ -54,8 +36,9 @@ export function useWallet() {
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: `0x${ARC_NETWORK.chainId.toString(16)}` }],
           });
-        } catch (switchError: any) {
-          if (switchError.code === 4902) {
+        } catch (switchError: unknown) {
+          const sError = switchError as { code: number; message: string };
+          if (sError.code === 4902) {
             await provider.request({
               method: 'wallet_addEthereumChain',
               params: [
@@ -79,13 +62,68 @@ export function useWallet() {
       }
 
       setAddress(accounts[0].toLowerCase());
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
-      console.error(err);
+      setShowModal(false);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e.message || 'Failed to connect wallet');
+      console.error(e);
     } finally {
       setIsConnecting(false);
     }
   }, []);
+
+  const connect = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    const ethereum = (window as unknown as { ethereum: EthereumProvider }).ethereum;
+    if (!ethereum) {
+      setError('No Ethereum wallet found. Please install MetaMask or Rabby.');
+      return;
+    }
+
+    // Multiple providers — show modal
+    if (ethereum.providers && ethereum.providers.length > 1) {
+      setShowModal(true);
+      return;
+    }
+
+    // Single wallet detected — connect directly
+    if (ethereum.isRabby) {
+      connectWithProvider(ethereum, 'rabby');
+    } else if (ethereum.isMetaMask) {
+      connectWithProvider(ethereum, 'metamask');
+    } else {
+      setShowModal(true);
+    }
+  }, [connectWithProvider]);
+
+  const connectWallet = useCallback((type: 'metamask' | 'rabby') => {
+    if (typeof window === 'undefined') return;
+
+    const ethereum = (window as unknown as { ethereum: EthereumProvider }).ethereum;
+    if (!ethereum) {
+      setError('No Ethereum wallet found. Please install MetaMask or Rabby.');
+      return;
+    }
+
+    if (ethereum.providers && ethereum.providers.length > 0) {
+      const targetProvider = ethereum.providers.find(
+        (p) => type === 'rabby' ? p.isRabby : p.isMetaMask
+      );
+      if (targetProvider) {
+        connectWithProvider(targetProvider, type);
+        return;
+      }
+    }
+
+    if (type === 'rabby' && ethereum.isRabby) {
+      connectWithProvider(ethereum, 'rabby');
+    } else if (type === 'metamask' && ethereum.isMetaMask) {
+      connectWithProvider(ethereum, 'metamask');
+    } else {
+      connectWithProvider(ethereum, type);
+    }
+  }, [connectWithProvider]);
 
   const disconnect = () => {
     setAddress(null);
@@ -94,12 +132,15 @@ export function useWallet() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const provider = (window as any).ethereum;
+    const provider = (window as unknown as { ethereum: EthereumProvider }).ethereum;
     if (provider) {
-      const handleAccountsChanged = (accounts: any) => {
-        setAddress(accounts[0]?.toLowerCase() || null);
+      const handleAccountsChanged = (accounts: unknown) => {
+        const accs = accounts as string[];
+        setAddress(accs[0]?.toLowerCase() || null);
       };
-      const handleChainChanged = () => window.location.reload();
+      const handleChainChanged = () => {
+        window.location.reload();
+      };
 
       provider.on('accountsChanged', handleAccountsChanged);
       provider.on('chainChanged', handleChainChanged);
@@ -113,5 +154,5 @@ export function useWallet() {
     }
   }, []);
 
-  return { address, connect, disconnect, isConnecting, error, walletType };
+  return { address, connect, connectWallet, disconnect, isConnecting, error, walletType, showModal, setShowModal };
 }

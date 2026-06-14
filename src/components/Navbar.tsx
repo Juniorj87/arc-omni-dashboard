@@ -4,9 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-  Menu, X, Layers, Trophy, Globe, 
+  Menu, X, Terminal, Trophy, Globe, 
   Wallet, Activity, LayoutDashboard, Target,
-  Settings, ExternalLink, ChevronRight
+  Settings, ExternalLink, ChevronRight, Search, Flame,
+  TrendingUp, Image, Vote, Book
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,16 +17,22 @@ export function Navbar() {
   const pathname = usePathname();
 
   const navLinks = [
-    { name: 'Terminal', href: '/', icon: LayoutDashboard },
-    { name: 'Portfolio', href: '/portfolio', icon: Wallet },
-    { name: 'Activity', href: '/activity', icon: Activity },
-    { name: 'Missions', href: '/missions', icon: Target },
-    { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
+    { name: 'terminal', href: '/', icon: Terminal, shortcut: 'F1' },
+    { name: 'portfolio', href: '/portfolio', icon: Wallet, shortcut: 'F2' },
+    { name: 'activity', href: '/activity', icon: Activity, shortcut: 'F3' },
+    { name: 'missions', href: '/missions', icon: Target, shortcut: 'F4' },
+    { name: 'leaderboard', href: '/leaderboard', icon: Trophy, shortcut: 'F5' },
+    { name: 'scanner', href: '/scanner', icon: Search, shortcut: 'F6' },
+    { name: 'gas', href: '/gas', icon: Flame, shortcut: 'F7' },
+    { name: 'yield', href: '/yield', icon: TrendingUp, shortcut: 'F8' },
+    { name: 'nfts', href: '/nfts', icon: Image, shortcut: 'F9' },
+    { name: 'governance', href: '/governance', icon: Vote, shortcut: 'F10' },
+    { name: 'addresses', href: '/addresses', icon: Book, shortcut: 'F11' },
   ];
 
   const secondaryLinks = [
-    { name: 'Wallets', href: '/wallets', icon: Settings },
-    { name: 'Docs', href: 'https://github.com/Juniorj87/arc-omni-dashboard', icon: Globe, external: true },
+    { name: 'wallets', href: '/wallets', icon: Settings },
+    { name: 'docs', href: 'https://github.com/Juniorj87/arc-omni-dashboard', icon: Globe, external: true },
   ];
 
   return (
@@ -33,29 +40,51 @@ export function Navbar() {
       {/* Mobile Toggle */}
       <button 
         onClick={() => setIsOpen(true)}
-        className="lg:hidden fixed top-6 left-6 z-[100] p-3 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-600/20"
+        className="lg:hidden fixed top-4 left-4 z-[100] p-2 bg-[#0f0f0f] border border-[#1a1a1a] text-[#00ff41] hover:border-[#00ff41] transition-colors"
       >
         <Menu className="w-5 h-5" />
       </button>
 
       {/* Sidebar Desktop */}
-      <aside className="fixed top-0 left-0 bottom-0 w-72 bg-[#0b0f17]/50 backdrop-blur-3xl border-r border-white/5 z-[120] hidden lg:flex flex-col p-8">
-        <Logo />
-        <nav className="flex-1 mt-12 space-y-2">
-           <p className="text-[10px] font-black uppercase text-white/20 tracking-[0.2em] mb-4 ml-4">Main Menu</p>
-           {navLinks.map((link) => (
-             <NavLink key={link.name} link={link} active={pathname === link.href} />
-           ))}
-           
-           <div className="pt-8">
-             <p className="text-[10px] font-black uppercase text-white/20 tracking-[0.2em] mb-4 ml-4">Advanced</p>
-             {secondaryLinks.map((link) => (
-               <NavLink key={link.name} link={link} active={pathname === link.href} />
-             ))}
-           </div>
+      <aside className="fixed top-0 left-0 bottom-0 w-64 bg-[#0a0a0a] border-r border-[#1a1a1a] z-[120] hidden lg:flex flex-col">
+        {/* Logo */}
+        <div className="p-6 border-b border-[#1a1a1a]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 border border-[#00ff41] flex items-center justify-center glow-box-green">
+              <Terminal className="w-4 h-4 text-[#00ff41]" />
+            </div>
+            <div>
+              <span className="font-mono font-bold text-sm text-[#00ff41] tracking-wider block leading-tight">ARC</span>
+              <span className="font-mono text-[8px] text-[#4a4a4a] uppercase tracking-[0.3em]">terminal v2.0</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <p className="text-[8px] font-bold text-[#2a2a2a] uppercase tracking-[0.3em] mb-3 px-3">main//</p>
+          {navLinks.map((link) => (
+            <NavLink key={link.name} link={link} active={pathname === link.href} />
+          ))}
+          
+          <div className="pt-6">
+            <p className="text-[8px] font-bold text-[#2a2a2a] uppercase tracking-[0.3em] mb-3 px-3">sys//</p>
+            {secondaryLinks.map((link) => (
+              <NavLink key={link.name} link={link} active={pathname === link.href} />
+            ))}
+          </div>
         </nav>
 
-        <Footer />
+        {/* Footer */}
+        <div className="p-4 border-t border-[#1a1a1a]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] pulse-green" />
+              <span className="text-[8px] font-bold text-[#4a4a4a] uppercase tracking-[0.2em]">online</span>
+            </div>
+            <span className="text-[8px] text-[#2a2a2a] font-mono">arc_testnet</span>
+          </div>
+        </div>
       </aside>
 
       {/* Mobile Drawer */}
@@ -65,31 +94,33 @@ export function Navbar() {
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[130] lg:hidden"
+              className="fixed inset-0 bg-black/90 z-[130] lg:hidden"
             />
             <motion.div 
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm bg-[#0b0f17] border-r border-white/5 z-[140] p-8 flex flex-col lg:hidden"
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed top-0 left-0 bottom-0 w-72 bg-[#0a0a0a] border-r border-[#1a1a1a] z-[140] p-6 flex flex-col lg:hidden"
             >
-              <div className="flex justify-between items-center mb-12">
-                 <Logo />
-                 <button onClick={() => setIsOpen(false)} className="p-2 text-white/40 hover:text-white">
-                    <X className="w-6 h-6" />
-                 </button>
+              <div className="flex justify-between items-center mb-8 pb-4 border-b border-[#1a1a1a]">
+                <div className="flex items-center gap-3">
+                  <Terminal className="w-5 h-5 text-[#00ff41]" />
+                  <span className="font-mono font-bold text-sm text-[#00ff41]">ARC</span>
+                </div>
+                <button onClick={() => setIsOpen(false)} className="p-2 text-[#4a4a4a] hover:text-[#e0e0e0]">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <nav className="flex-1 space-y-2">
-                 {navLinks.map((link) => (
-                   <NavLink key={link.name} link={link} active={pathname === link.href} onClick={() => setIsOpen(false)} />
-                 ))}
-                 <div className="pt-8">
-                    {secondaryLinks.map((link) => (
-                      <NavLink key={link.name} link={link} active={pathname === link.href} onClick={() => setIsOpen(false)} />
-                    ))}
-                 </div>
+              <nav className="flex-1 space-y-1">
+                {navLinks.map((link) => (
+                  <NavLink key={link.name} link={link} active={pathname === link.href} onClick={() => setIsOpen(false)} />
+                ))}
+                <div className="pt-6">
+                  {secondaryLinks.map((link) => (
+                    <NavLink key={link.name} link={link} active={pathname === link.href} onClick={() => setIsOpen(false)} />
+                  ))}
+                </div>
               </nav>
-              <Footer />
             </motion.div>
           </>
         )}
@@ -98,80 +129,47 @@ export function Navbar() {
   );
 }
 
-function Logo() {
-  return (
-    <div className="flex items-center gap-4 px-2">
-      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-white/5 transition-transform hover:scale-105 active:scale-95 cursor-pointer">
-         <Layers className="w-7 h-7 text-black" />
-      </div>
-      <div className="overflow-visible">
-        <span className="font-black tracking-tight text-2xl arc-gradient-text uppercase block leading-tight">Arc Omni</span>
-        <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.3em]">Protocol v1.5</span>
-      </div>
-    </div>
-  );
-}
-
 function NavLink({ link, active, onClick }: { link: any, active: boolean, onClick?: () => void }) {
   const isExternal = link.external;
   
   const content = (
     <div className={cn(
-      "flex items-center justify-between group p-4 rounded-2xl transition-all duration-300 relative overflow-hidden w-full",
-      active ? "bg-white/5 border border-white/10" : "hover:bg-white/[0.02] border border-transparent"
+      "flex items-center justify-between group px-3 py-2.5 transition-all duration-150 relative w-full",
+      active 
+        ? "bg-[#00ff41]/5 border-l-2 border-[#00ff41] text-[#00ff41]" 
+        : "border-l-2 border-transparent hover:bg-[#141414] text-[#4a4a4a] hover:text-[#e0e0e0]"
     )}>
-      <div className="flex items-center gap-4 relative z-10">
-        <link.icon className={cn("w-5 h-5 transition-colors", active ? "text-blue-500" : "text-white/30 group-hover:text-white/60")} />
-        <span className={cn(
-          "font-bold uppercase text-[11px] tracking-widest transition-colors",
-          active ? "text-white" : "text-white/40 group-hover:text-white"
-        )}>
+      <div className="flex items-center gap-3">
+        <link.icon className={cn("w-4 h-4", active ? "text-[#00ff41]" : "text-[#2a2a2a] group-hover:text-[#4a4a4a]")} />
+        <span className="font-mono text-[11px] font-medium tracking-wider lowercase">
           {link.name}
         </span>
       </div>
-      {active && (
-        <motion.div layoutId="nav-glow" className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none" />
-      )}
-      <div className="relative z-10">
-        {isExternal ? (
-          <ExternalLink className="w-3.5 h-3.5 text-white/20 group-hover:text-white/40 transition-colors" />
-        ) : (
-          <ChevronRight className={cn("w-4 h-4 transition-all opacity-0", active ? "opacity-100 text-blue-500 translate-x-0" : "group-hover:opacity-40 -translate-x-2")} />
+      <div className="flex items-center gap-2">
+        {link.shortcut && (
+          <span className={cn(
+            "text-[8px] font-mono px-1.5 py-0.5 border",
+            active ? "border-[#00ff41]/30 text-[#00ff41]/60" : "border-[#1a1a1a] text-[#2a2a2a]"
+          )}>
+            {link.shortcut}
+          </span>
         )}
+        {isExternal && <ExternalLink className="w-3 h-3 text-[#2a2a2a]" />}
       </div>
     </div>
   );
 
   if (isExternal) {
     return (
-      <a href={link.href} target="_blank" rel="noreferrer" onClick={onClick} className="block w-full">
+      <a href={link.href} target="_blank" rel="noreferrer" onClick={onClick} className="block">
         {content}
       </a>
     );
   }
 
   return (
-    <Link href={link.href} onClick={onClick} className="block w-full">
+    <Link href={link.href} onClick={onClick} className="block">
       {content}
     </Link>
-  );
-}
-
-function Footer() {
-  return (
-    <div className="pt-8 border-t border-white/5 space-y-6">
-       <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-             <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">System Online</span>
-          </div>
-          <a href="https://github.com/Juniorj87/arc-omni-dashboard" target="_blank" rel="noreferrer" className="text-white/20 hover:text-white transition-colors">
-             <Globe className="w-4 h-4" />
-          </a>
-       </div>
-       <p className="text-[9px] font-black uppercase text-white/5 tracking-[0.4em] text-center">
-         Institutional Terminal
-       </p>
-    </div>
   );
 }

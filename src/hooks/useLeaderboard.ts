@@ -30,8 +30,8 @@ export function useLeaderboard(address: string | null) {
     const fetchLeaderboard = useCallback(async () => {
         setIsLoading(true);
         try {
-            const url = address ? `/api/leaderboard?address=${address}` : '/api/leaderboard';
-            const res = await fetch(url);
+            const params = address ? `?address=${encodeURIComponent(address)}` : '';
+            const res = await fetch(`/api/leaderboard${params}`);
             const data = await res.json();
 
             if (data.success) {
@@ -50,12 +50,13 @@ export function useLeaderboard(address: string | null) {
         }
     }, [address]);
 
-    const registerWallet = async (entry: Partial<LeaderboardEntry>) => {
+    // POST only sends the address — server computes all values from on-chain data
+    const registerWallet = async (entry: { address: string }) => {
         try {
             await fetch('/api/leaderboard', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entry)
+                body: JSON.stringify({ address: entry.address }),
             });
             await fetchLeaderboard();
         } catch (err) {

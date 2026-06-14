@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, AlertCircle, Bell } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
@@ -13,7 +14,6 @@ export interface Notification {
   message: string;
 }
 
-// Simple event bus for notifications
 let notificationCallback: (n: Notification) => void = () => {};
 
 export const notify = (type: NotificationType, title: string, message: string) => {
@@ -42,35 +42,35 @@ export function NotificationCenter() {
   };
 
   return (
-    <div className="fixed bottom-8 right-8 z-[500] space-y-4 w-full max-w-sm pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-[500] space-y-2 w-full max-w-sm pointer-events-none">
       <AnimatePresence>
         {notifications.map((n) => (
           <motion.div
             key={n.id}
-            initial={{ opacity: 0, x: 50, scale: 0.9 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9, x: 50 }}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 50 }}
             className="pointer-events-auto"
           >
-            <div className="arc-glass-heavy p-5 rounded-[2rem] border border-white/10 shadow-2xl flex items-start gap-4 group">
+            <div className="bg-[#0f0f0f] border border-[#1a1a1a] p-3 flex items-start gap-3">
               <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                n.type === 'success' && "bg-green-500/20 text-green-500",
-                n.type === 'error' && "bg-red-500/20 text-red-500",
-                n.type === 'warning' && "bg-yellow-500/20 text-yellow-500",
-                n.type === 'info' && "bg-blue-500/20 text-blue-500",
+                "w-5 h-5 flex items-center justify-center shrink-0 mt-0.5",
+                n.type === 'success' && "text-[#00ff41]",
+                n.type === 'error' && "text-[#ff3333]",
+                n.type === 'warning' && "text-[#ffb000]",
+                n.type === 'info' && "text-[#00d4ff]",
               )}>
-                {n.type === 'success' && <CheckCircle2 className="w-5 h-5" />}
-                {n.type === 'error' && <AlertCircle className="w-5 h-5" />}
-                {n.type === 'warning' && <AlertCircle className="w-5 h-5" />}
-                {n.type === 'info' && <Bell className="w-5 h-5" />}
+                {n.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
+                {n.type === 'error' && <AlertCircle className="w-4 h-4" />}
+                {n.type === 'warning' && <AlertCircle className="w-4 h-4" />}
+                {n.type === 'info' && <Bell className="w-4 h-4" />}
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-black uppercase tracking-widest text-white mb-1">{n.title}</h4>
-                <p className="text-[11px] text-white/40 leading-relaxed font-medium">{n.message}</p>
+                <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#e0e0e0]">{n.title}</h4>
+                <p className="font-mono text-[9px] text-[#4a4a4a] mt-0.5">{n.message}</p>
               </div>
-              <button onClick={() => remove(n.id)} className="p-1 text-white/10 hover:text-white transition-colors">
-                <X className="w-4 h-4" />
+              <button onClick={() => remove(n.id)} className="p-0.5 text-[#2a2a2a] hover:text-[#4a4a4a]">
+                <X className="w-3 h-3" />
               </button>
             </div>
           </motion.div>
@@ -78,8 +78,4 @@ export function NotificationCenter() {
       </AnimatePresence>
     </div>
   );
-}
-
-function cn(...inputs: (string | boolean | undefined)[]) {
-  return inputs.filter(Boolean).join(' ');
 }

@@ -1,31 +1,38 @@
 'use client';
 
 import { useWallet } from '@/hooks/useWallet';
-import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { useActiveNode } from '@/hooks/useActiveNode';
+import { useOmniPositions } from '@/hooks/useOmniPositions';
+import { useEcosystem } from '@/hooks/useEcosystem';
 import { truncateAddress, cn } from '@/lib/utils';
+import { ethers } from 'ethers';
 import { 
-  PieChart as PieChartIcon, Search, Zap, 
-  ExternalLink, LogOut, Send, 
-  Wallet, Shield, ChevronRight, Activity, RefreshCcw, Globe, Trophy, Terminal
+  Search, Terminal, Zap, Wallet, Shield, ChevronRight, 
+  Activity, RefreshCcw, Globe, Trophy, ArrowUpRight, ArrowDownRight,
+  ExternalLink, LogOut, Send, Loader2
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area } from 'recharts';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { SendModal } from '@/components/SendModal';
 import { WalletModal } from '@/components/WalletModal';
-import { motion, AnimatePresence } from 'framer-motion';
-
-const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ffffff', '#a1a1aa'];
+import { motion } from 'framer-motion';
 
 export default function Home() {
-  const { address: connectedAddress, connect, disconnect, isConnecting } = useWallet();
+  const { address: connectedAddress, connect, connectWallet, disconnect, isConnecting, error: walletError, showModal, setShowModal } = useWallet();
   const { activeAddress, updateActiveNode, searchedAddress } = useActiveNode();
   const [searchInput, setSearchAddress] = useState('');
   const { balances, positions, extraData, history, isLoading } = useOmniPositions(activeAddress);
-  
+  const { projects: ecosystemProjects } = useEcosystem(activeAddress);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString('en-US', { hour12: false }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (searchedAddress) {
@@ -37,347 +44,347 @@ export default function Home() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    updateActiveNode(searchInput);
-  };
-
-  const handleConnectClick = () => {
-    setIsWalletModalOpen(true);
-  };
-
-  const handleWalletSelect = (type: 'metamask' | 'rabby') => {
-    connect(type);
-    setIsWalletModalOpen(false);
+    if (searchInput.startsWith('0x') && searchInput.length === 42 && ethers.isAddress(searchInput)) {
+      updateActiveNode(searchInput);
+    }
   };
 
   const totalNetWorth = parseFloat(balances.USDC || '0') + 
                         parseFloat(balances.EURC || '0') + 
+                        (parseFloat(balances.ARC || '0') * 0.5) +
                         positions.reduce((acc, p) => acc + p.valueUsd, 0);
 
-  const historyData = [
-    { name: 'Mon', val: 400 }, { name: 'Tue', val: 450 }, 
-    { name: 'Wed', val: 420 }, { name: 'Thu', val: 600 }, 
-    { name: 'Fri', val: 580 }, { name: 'Sat', val: 800 },
-    { name: 'Sun', val: 750 }
-  ];
-
-  const ecosystemProjects = [
-    { name: 'Achswap', desc: 'Native AMM Dex', url: 'https://achswap.org/swap' },
-    { name: 'Xylonet', desc: 'Liquidity Layer', url: 'https://www.xylonet.xyz/swap' },
-    { name: 'Synthra', desc: 'Synthetic Assets', url: 'https://app.synthra.org/#/swap' },
-    { name: 'Arc Bridge', desc: 'Cross-chain Link', url: 'https://arc-bridge.vercel.app/' },
-    { name: 'SimpleSwap', desc: 'Atomic Swaps', url: 'https://simple-swap-phi.vercel.app/' },
-    { name: 'KudiArc', desc: 'Yield Aggregator', url: 'https://kudiarc.xyz/yield' }
-  ];
+  const asciiChart = generateAsciiChart(history.map((_, i) => 300 + Math.sin(i * 0.8) * 200 + Math.random() * 100));
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-8 pb-24 relative">
-      
-      <div className="flex flex-col lg:flex-row justify-between items-center gap-6 pb-8 border-b border-white/5 relative z-20">
-        <div className="relative w-full lg:max-w-xl group">
-           <Search className={cn("absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors", isLoading ? "text-blue-500 animate-pulse" : "text-white/20 group-focus-within:text-blue-500")} />
-           <form onSubmit={handleSearch}>
-             <input 
-               type="text" 
-               placeholder="Analyze any Arc identity (0x...)"
-               value={searchInput}
-               onChange={(e) => setSearchAddress(e.target.value)}
-               className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-sm focus:outline-none focus:border-blue-500/30 transition-all font-mono text-white placeholder:text-white/10"
-             />
-           </form>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          {connectedAddress ? (
-            <div className="flex items-center gap-3 p-1.5 bg-white/5 rounded-2xl border border-white/5">
-               <div className="flex items-center gap-3 px-4 py-2 bg-blue-600/10 border border-blue-500/20 rounded-xl">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] animate-pulse" />
-                  <span className="text-xs font-mono font-bold text-blue-400">{truncateAddress(connectedAddress)}</span>
-               </div>
-               <button onClick={disconnect} className="p-2.5 text-white/20 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all">
-                  <LogOut className="w-4 h-4" />
-               </button>
+    <div className="p-6 max-w-[1400px] mx-auto space-y-6 pb-24">
+      {/* Terminal Header */}
+      <header className="border border-[#1a1a1a] bg-[#0f0f0f] p-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-[#00ff41]">
+              <Terminal className="w-4 h-4" />
+              <span className="font-mono text-xs font-bold">ARC_TERMINAL</span>
             </div>
-          ) : (
-            <button 
-              onClick={handleConnectClick} 
-              disabled={isConnecting}
-              className="px-8 py-3.5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5"
-            >
-              {isConnecting ? 'Linking...' : 'Connect Identity'}
-            </button>
-          )}
+            <span className="text-[#2a2a2a]">|</span>
+            <span className="font-mono text-[10px] text-[#4a4a4a]">{currentTime}</span>
+            <span className="text-[#2a2a2a]">|</span>
+            <span className="font-mono text-[10px] text-[#4a4a4a]">ARC_TESTNET</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] pulse-green" />
+          </div>
+          
+          <div className="flex items-center gap-3 w-full lg:w-auto">
+            <form onSubmit={handleSearch} className="relative flex-1 lg:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-[#2a2a2a]" />
+              <input 
+                ref={inputRef}
+                type="text" 
+                placeholder="0x... analyze node"
+                value={searchInput}
+                onChange={(e) => setSearchAddress(e.target.value)}
+                maxLength={42}
+                className="w-full terminal-input pl-9 pr-4 py-2.5"
+              />
+            </form>
+            
+            {connectedAddress ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 border border-[#1a1a1a] text-[10px] font-mono text-[#00ff41]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] pulse-green" />
+                  {truncateAddress(connectedAddress)}
+                </div>
+                <button onClick={disconnect} className="p-2 border border-[#1a1a1a] text-[#4a4a4a] hover:text-[#ff3333] hover:border-[#ff3333] transition-colors">
+                  <LogOut className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={connect} 
+                disabled={isConnecting}
+                className="btn-terminal flex items-center gap-2"
+              >
+                {isConnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {isConnecting ? 'connecting...' : 'connect'}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </header>
 
       {activeAddress ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-20">
-          
-          <div className="lg:col-span-8 space-y-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-               <KpiCard label="Portfolio Value" value={`$${totalNetWorth.toLocaleString()}`} icon={Wallet} color="blue" trend="+8.4%" />
-               <KpiCard label="Activity Score" value={extraData.score} icon={Trophy} color="purple" trend="Top 5%" />
-               <KpiCard label="Gas Spent" value={`$${extraData.gasSpent}`} icon={Zap} color="orange" />
-               <KpiCard label="Success Rate" value={extraData.successRate} icon={Shield} color="green" />
+        <>
+          {/* System Status Bar */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatBlock label="PORTFOLIO" value={`$${totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} color="green" />
+            <StatBlock label="SCORE" value={extraData.score.toLocaleString()} color="amber" />
+            <StatBlock label="GAS_SPENT" value={`$${extraData.gasSpent}`} color="white" />
+            <StatBlock label="TX_COUNT" value={extraData.txCount.toString()} color="white" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column */}
+            <div className="lg:col-span-8 space-y-6">
+              {/* ASCII Chart */}
+              <div className="terminal-card p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-3 h-3 text-[#00ff41]" />
+                    <span className="font-mono text-[10px] text-[#4a4a4a] uppercase tracking-widest">portfolio_trajectory</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {['1D', '1W', '1M', 'ALL'].map(t => (
+                      <button key={t} className={cn("px-2 py-1 text-[8px] font-mono border", t === '1W' ? "border-[#00ff41] text-[#00ff41] bg-[#00ff41]/5" : "border-[#1a1a1a] text-[#2a2a2a] hover:text-[#4a4a4a]")}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <pre className="font-mono text-[10px] text-[#00ff41] leading-tight overflow-x-auto">{asciiChart}</pre>
+              </div>
+
+              {/* Assets Table */}
+              <div className="terminal-card">
+                <div className="p-4 border-b border-[#1a1a1a] flex justify-between items-center">
+                  <span className="font-mono text-[10px] text-[#4a4a4a] uppercase tracking-widest">digital_assets</span>
+                  <span className="font-mono text-[8px] text-[#2a2a2a]">sync: {isLoading ? 'pending' : 'ok'}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full terminal-table">
+                    <thead>
+                      <tr>
+                        <th>asset</th>
+                        <th>balance</th>
+                        <th className="text-right">value_usd</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <AssetRow symbol="USDC" balance={balances.USDC || '0'} value={parseFloat(balances.USDC || '0')} />
+                      <AssetRow symbol="EURC" balance={balances.EURC || '0'} value={parseFloat(balances.EURC || '0')} />
+                      <AssetRow symbol="ARC" balance={balances.ARC || '0'} value={parseFloat(balances.ARC || '0') * 0.5} />
+                      {positions.map((pos, i) => (
+                        <AssetRow key={i} symbol={pos.name} balance={pos.balance} value={pos.valueUsd} protocol={pos.protocol} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <QuickAction icon={Send} label="send" desc="transfer" onClick={() => setIsSendModalOpen(true)} />
+                <QuickAction icon={RefreshCcw} label="swap" desc="dex_order" href="/activity" />
+                <QuickAction icon={Globe} label="bridge" desc="cross_chain" href="/activity" />
+                <QuickAction icon={Zap} label="faucet" desc="testnet_gas" href="/missions" />
+              </div>
+
+              {/* Ecosystem */}
+              <div className="terminal-card p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="w-3 h-3 text-[#00ff41]" />
+                  <span className="font-mono text-[10px] text-[#4a4a4a] uppercase tracking-widest">ecosystem_presence</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {ecosystemProjects.map(p => (
+                    <a key={p.name} href={p.url} target="_blank" rel="noreferrer" 
+                       className="flex items-center justify-between p-3 border border-[#1a1a1a] hover:border-[#00ff41]/30 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 border border-[#1a1a1a] flex items-center justify-center font-mono text-[10px] text-[#4a4a4a] group-hover:text-[#00ff41] group-hover:border-[#00ff41]/30 transition-colors">
+                          {p.name[0]}
+                        </div>
+                        <div>
+                          <p className="font-mono text-[11px] text-[#e0e0e0] group-hover:text-[#00ff41] transition-colors">{p.name}</p>
+                          <p className="font-mono text-[8px] text-[#2a2a2a] uppercase">{p.desc}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-[9px] text-[#4a4a4a]">${p.tvl.toLocaleString()}</p>
+                        {p.userPositions > 0 && (
+                          <p className="font-mono text-[8px] text-[#00ff41]">{p.userPositions} pos</p>
+                        )}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <section className="arc-glass rounded-[2.5rem] p-10 border border-white/5 relative overflow-hidden">
-               <div className="flex justify-between items-center mb-10">
-                  <div>
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter text-white">Portfolio Trajectory</h3>
-                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Institutional Growth Metrics</p>
+            {/* Right Column */}
+            <div className="lg:col-span-4 space-y-6">
+              {/* Live Activity */}
+              <div className="terminal-card p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#00ff41] pulse-green" />
+                    <span className="font-mono text-[10px] text-[#4a4a4a] uppercase tracking-widest">live_activity</span>
                   </div>
-               </div>
-               <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={historyData}>
-                      <defs>
-                        <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <Tooltip contentStyle={{ backgroundColor: '#0b0f17', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }} />
-                      <Area type="monotone" dataKey="val" stroke="#3b82f6" fill="url(#colorGrowth)" strokeWidth={4} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-               </div>
-            </section>
-
-            <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-               <QuickActionCard title="Send Assets" desc="Transfer USDC/EURC" icon={Send} onClick={() => setIsSendModalOpen(true)} color="blue" />
-               <QuickActionCard title="Swap Tokens" desc="Execute DEX Order" icon={RefreshCcw} href="/activity" color="purple" />
-               <QuickActionCard title="Bridge Fund" desc="Cross-chain Link" icon={Globe} href="/activity" color="white" />
-               <QuickActionCard title="Claim Faucet" desc="Request Testnet Gas" icon={Zap} href="/missions" color="orange" />
-            </section>
-
-            <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-               <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
-                  <h4 className="text-[10px] font-black uppercase text-white/20 tracking-[0.3em] mb-8">Performance Analytics</h4>
-                  <div className="space-y-6">
-                     <AnalyticsItem label="Total Volume" value={`$${extraData.volume}`} />
-                     <AnalyticsItem label="Unique Contracts" value={extraData.uniqueContracts} />
-                     <AnalyticsItem label="Wallet Age" value={extraData.walletAge} />
-                     <AnalyticsItem label="Avg Tx Cost" value="$0.045" />
-                  </div>
-               </div>
-               <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
-                  <h4 className="text-[10px] font-black uppercase text-white/20 tracking-[0.3em] mb-8">Ecosystem Presence</h4>
-                  <div className="space-y-3">
-                     {ecosystemProjects.map(p => (
-                        <a key={p.name} href={p.url} target="_blank" rel="noreferrer" className="flex justify-between items-center p-3 bg-white/5 rounded-2xl border border-white/5 group hover:border-blue-500/30 transition-all cursor-pointer">
-                           <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center font-bold text-[10px] uppercase text-white/40">{p.name[0]}</div>
-                              <div>
-                                 <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{p.name}</p>
-                                 <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">{p.desc}</p>
-                              </div>
-                           </div>
-                           <ChevronRight className="w-4 h-4 text-white/10 group-hover:text-blue-500 transition-all" />
-                        </a>
-                     ))}
-                  </div>
-               </div>
-            </section>
-          </div>
-
-          <div className="lg:col-span-4 space-y-8">
-            <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
-               <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-white/40">Asset Mix</h3>
-                  <PieChartIcon className="w-4 h-4 text-white/20" />
-               </div>
-               <div className="h-48 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={[{ name: 'USDC', value: 60 }, { name: 'EURC', value: 30 }, { name: 'Others', value: 10 }]} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" animationDuration={1000}>
-                        {CHART_COLORS.map((color, i) => <Cell key={i} fill={color} stroke="none" />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-               </div>
-               <div className="mt-6 space-y-3">
-                  <AllocationItem label="USDC Stable" color={CHART_COLORS[0]} percent="60%" />
-                  <AllocationItem label="EURC Stable" color={CHART_COLORS[1]} percent="30%" />
-                  <AllocationItem label="Protocol LPs" color={CHART_COLORS[2]} percent="10%" />
-               </div>
-            </section>
-
-            <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5 space-y-8 h-[600px] flex flex-col">
-               <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-blue-500" />
-                    Live Activity
-                  </h3>
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-               </div>
-               
-               <div className="flex-1 overflow-y-auto space-y-6 pr-2 scrollbar-hide">
-                  <AnimatePresence mode="popLayout">
-                    {history.map((tx, i) => (
-                      <motion.div 
-                        key={`${tx.hash}-${i}`}
-                        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                        className="relative pl-6 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-px before:bg-white/5"
-                      >
-                        <div className="absolute left-[-3px] top-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                        <div className="flex justify-between items-start mb-1">
-                            <p className="text-xs font-bold text-white tracking-tight">{tx.method}</p>
-                            <span className="text-[10px] font-mono text-white/20">{tx.time}</span>
+                </div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {history.map((tx, i) => (
+                    <div key={i} className="flex items-start gap-3 py-2 border-b border-[#1a1a1a] last:border-0">
+                      <div className="w-1 h-1 rounded-full bg-[#00ff41] mt-2 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono text-[10px] text-[#e0e0e0]">{tx.method}</span>
+                          <span className="font-mono text-[8px] text-[#2a2a2a]">{tx.time}</span>
                         </div>
-                        <p className="text-[10px] text-white/40 font-mono truncate mb-2">{tx.hash}</p>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-green-500/10 text-green-500 rounded">Confirmed</span>
-                            <ExternalLink className="w-3 h-3 text-white/10" />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-               </div>
+                        <p className="font-mono text-[9px] text-[#2a2a2a] truncate mt-1">{tx.hash}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/activity" className="block mt-3 py-2 border border-[#1a1a1a] text-center font-mono text-[9px] text-[#4a4a4a] hover:text-[#00ff41] hover:border-[#00ff41]/30 transition-colors uppercase tracking-widest">
+                  view_full_history
+                </Link>
+              </div>
 
-               <Link href="/activity" className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center transition-all border border-white/5">
-                  View Full History
-               </Link>
-            </section>
-
-            <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5 space-y-6">
-               <h3 className="text-xs font-black uppercase tracking-widest text-white/40">Network Intel</h3>
-               <div className="space-y-4">
-                  <HealthItem label="Consensus Engine" />
-                  <HealthItem label="RPC Gateway" />
-                  <HealthItem label="Data Indexer" />
-               </div>
-            </section>
+              {/* Network Health */}
+              <div className="terminal-card p-4">
+                <span className="font-mono text-[10px] text-[#4a4a4a] uppercase tracking-widest block mb-4">network_health</span>
+                <div className="space-y-3">
+                  <HealthItem label="consensus_engine" status="active" />
+                  <HealthItem label="rpc_gateway" status="active" />
+                  <HealthItem label="data_indexer" status="active" />
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       ) : (
-        <HeroSection connect={handleConnectClick} isConnecting={isConnecting} />
+        <HeroSection connect={connect} isConnecting={isConnecting} />
       )}
 
       <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} address={connectedAddress || ''} />
-      <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} onSelect={handleWalletSelect} />
-      
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-20">
-         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[150px] rounded-full animate-pulse" />
-         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
+      <WalletModal isOpen={showModal} onClose={() => setShowModal(false)} onSelect={connectWallet} isConnecting={isConnecting} error={walletError} />
     </div>
   );
 }
 
-function KpiCard({ label, value, icon: Icon, color, trend }: { label: string, value: string | number, icon: any, color: string, trend?: string }) {
+function StatBlock({ label, value, color }: { label: string, value: string, color: string }) {
   return (
-    <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5 space-y-4 relative overflow-hidden group">
-      <div className={cn(
-        "absolute -top-12 -right-12 w-32 h-32 blur-3xl opacity-10 transition-opacity group-hover:opacity-30",
-        color === 'blue' ? "bg-blue-600" : color === 'purple' ? "bg-purple-600" : color === 'orange' ? "bg-orange-600" : "bg-green-600"
-      )} />
-      <div className="flex justify-between items-center">
-         <Icon className={cn("w-6 h-6", color === 'blue' ? "text-blue-500" : color === 'purple' ? "text-purple-500" : color === 'orange' ? "text-orange-500" : "text-green-500")} />
-         {trend && <span className="text-[9px] font-black text-blue-500 bg-blue-500/10 px-2 py-1 rounded-lg">{trend}</span>}
-      </div>
-      <div>
-         <p className="text-[10px] font-black uppercase text-white/20 tracking-widest mb-1">{label}</p>
-         <h3 className="text-2xl font-black italic tracking-tighter text-white">{value}</h3>
-      </div>
+    <div className="terminal-card p-4">
+      <p className="font-mono text-[8px] text-[#2a2a2a] uppercase tracking-[0.2em] mb-1">{label}</p>
+      <p className={cn(
+        "font-mono text-lg font-bold tracking-tight",
+        color === 'green' ? 'text-[#00ff41] glow-green' : color === 'amber' ? 'text-[#ffb000] glow-amber' : 'text-[#e0e0e0]'
+      )}>
+        {value}
+      </p>
     </div>
   );
 }
 
-function QuickActionCard({ title, desc, icon: Icon, onClick, href, color }: { title: string, desc: string, icon: any, onClick?: () => void, href?: string, color: string }) {
+function AssetRow({ symbol, balance, value, protocol }: { symbol: string, balance: string, value: number, protocol?: string }) {
+  return (
+    <tr className="group hover:bg-[#00ff41]/[0.02] transition-colors">
+      <td>
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 border border-[#1a1a1a] flex items-center justify-center font-mono text-[9px] text-[#4a4a4a]">
+            {symbol[0]}
+          </div>
+          <div>
+            <span className="font-mono text-[11px] text-[#e0e0e0] group-hover:text-[#00ff41] transition-colors">{symbol}</span>
+            {protocol && <span className="font-mono text-[8px] text-[#2a2a2a] ml-2">{protocol}</span>}
+          </div>
+        </div>
+      </td>
+      <td>
+        <span className="font-mono text-[11px] text-[#4a4a4a]">{parseFloat(balance).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+      </td>
+      <td className="text-right">
+        <span className="font-mono text-[11px] text-[#e0e0e0]">${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+      </td>
+    </tr>
+  );
+}
+
+function QuickAction({ icon: Icon, label, desc, onClick, href }: { icon: any, label: string, desc: string, onClick?: () => void, href?: string }) {
   const Content = (
-    <div className="arc-glass rounded-[2rem] p-6 border border-white/5 flex flex-col items-center text-center space-y-4 group hover:border-white/20 hover:bg-white/[0.04] transition-all cursor-pointer h-full">
-       <div className={cn(
-         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
-         color === 'blue' ? "bg-blue-600/10 text-blue-500" : color === 'purple' ? "bg-purple-600/10 text-purple-500" : color === 'orange' ? "bg-orange-600/10 text-orange-500" : "bg-white/5 text-white"
-       )}>
-          <Icon className="w-6 h-6" />
-       </div>
-       <div>
-          <h4 className="font-bold text-xs uppercase tracking-widest text-white mb-1">{title}</h4>
-          <p className="text-[9px] text-white/20 font-bold uppercase">{desc}</p>
-       </div>
+    <div className="terminal-card p-4 flex items-center gap-3 group hover:border-[#00ff41]/30 transition-colors cursor-pointer h-full">
+      <Icon className="w-4 h-4 text-[#2a2a2a] group-hover:text-[#00ff41] transition-colors" />
+      <div>
+        <p className="font-mono text-[10px] text-[#e0e0e0] group-hover:text-[#00ff41] transition-colors uppercase">{label}</p>
+        <p className="font-mono text-[8px] text-[#2a2a2a]">{desc}</p>
+      </div>
     </div>
   );
 
   return href ? <Link href={href} className="block">{Content}</Link> : <div onClick={onClick}>{Content}</div>;
 }
 
-function AnalyticsItem({ label, value }: { label: string, value: string | number }) {
+function HealthItem({ label, status }: { label: string, status: string }) {
   return (
-    <div className="flex justify-between items-center">
-       <span className="text-[10px] font-black uppercase text-white/20 tracking-widest">{label}</span>
-       <span className="text-xs font-bold text-white italic tracking-tighter">{value}</span>
-    </div>
-  );
-}
-
-function AllocationItem({ label, color, percent }: { label: string, color: string, percent: string }) {
-  return (
-    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest group">
-       <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-white/30 group-hover:text-white/60 transition-colors">{label}</span>
-       </div>
-       <span className="text-white/60">{percent}</span>
-    </div>
-  );
-}
-
-function HealthItem({ label }: { label: string }) {
-  return (
-    <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-       <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{label}</span>
-       <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-          <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Active</span>
-       </div>
+    <div className="flex items-center justify-between py-2 border-b border-[#1a1a1a] last:border-0">
+      <span className="font-mono text-[9px] text-[#4a4a4a]">{label}</span>
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-1 rounded-full bg-[#00ff41]" />
+        <span className="font-mono text-[8px] text-[#00ff41] uppercase">{status}</span>
+      </div>
     </div>
   );
 }
 
 function HeroSection({ connect, isConnecting }: { connect: () => void, isConnecting: boolean }) {
   const [typedText, setTypedText] = useState('');
-  const fullText = "The Sovereign Portfolio Terminal.";
+  const [showCursor, setShowCursor] = useState(true);
+  const fullText = "ARC_OMNI_TERMINAL";
   
   useEffect(() => {
     let i = 0;
     const interval = setInterval(() => {
       setTypedText(fullText.slice(0, i));
       i++;
-      if (i > fullText.length) clearInterval(interval);
-    }, 50);
+      if (i > fullText.length) {
+        clearInterval(interval);
+        setTimeout(() => setShowCursor(false), 2000);
+      }
+    }, 80);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="h-[70vh] flex flex-col items-center justify-center text-center max-w-4xl mx-auto space-y-12 relative z-20">
-       <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/10 border border-blue-500/20 rounded-full mb-4">
-             <Terminal className="w-3 h-3 text-blue-500" />
-             <span className="text-[8px] font-black uppercase text-blue-500 tracking-[0.2em]">System Initialized</span>
-          </div>
-          <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter arc-gradient-text uppercase leading-[0.9] min-h-[1.8em]">
-             {typedText}
-          </h1>
-          <p className="text-lg text-white/40 font-medium max-w-xl mx-auto leading-relaxed">
-             Hyper-detailed analytics for any address on the Arc Testnet. <br />
-             <span className="text-blue-500 font-bold">High-signal insights. Zero noise.</span>
-          </p>
-       </div>
-       
-       <div className="flex flex-col sm:flex-row items-center gap-6 w-full max-w-md">
-          <button 
-            onClick={connect} disabled={isConnecting}
-            className="w-full py-5 bg-white text-black rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:scale-105 active:scale-95 transition-all"
-          >
-             {isConnecting ? 'Linking Portal...' : 'Initialize Terminal'}
-          </button>
-       </div>
+    <div className="h-[70vh] flex flex-col items-center justify-center text-center max-w-3xl mx-auto space-y-8">
+      <div className="space-y-4">
+        <div className="font-mono text-[10px] text-[#00ff41] mb-4">[ SYSTEM INITIALIZED ]</div>
+        <h1 className="font-mono text-4xl md:text-6xl font-bold text-[#00ff41] glow-green tracking-tighter">
+          {typedText}
+          {showCursor && <span className="animate-pulse">_</span>}
+        </h1>
+        <p className="font-mono text-sm text-[#4a4a4a] max-w-lg mx-auto leading-relaxed">
+          Hyper-detailed analytics for any address on the Arc Testnet.
+          <br />
+          <span className="text-[#00ff41]">High-signal insights. Zero noise.</span>
+        </p>
+      </div>
+      
+      <button 
+        onClick={connect} disabled={isConnecting}
+        className="btn-terminal px-8 py-4 text-sm"
+      >
+        {isConnecting ? '[ connecting... ]' : '[ initialize_terminal ]'}
+      </button>
 
-       <div className="flex items-center gap-8 opacity-20">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><Shield className="w-4 h-4" /> Secure</div>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><Globe className="w-4 h-4" /> Global</div>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><Zap className="w-4 h-4" /> Real-time</div>
-       </div>
+      <div className="flex items-center gap-6 text-[8px] font-mono text-[#2a2a2a] uppercase tracking-[0.3em]">
+        <span>secure</span>
+        <span>global</span>
+        <span>real-time</span>
+      </div>
     </div>
   );
+}
+
+function generateAsciiChart(data: number[]): string {
+  if (data.length === 0) return '';
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const height = 8;
+  const width = Math.min(data.length, 50);
+  const step = Math.floor(data.length / width);
+  const sampled = data.filter((_, i) => i % step === 0).slice(0, width);
+  
+  const chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+  return sampled.map(v => {
+    const normalized = ((v - min) / range) * (chars.length - 1);
+    return chars[Math.round(normalized)];
+  }).join('');
 }

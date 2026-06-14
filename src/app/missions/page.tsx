@@ -4,119 +4,125 @@ import { useWallet } from '@/hooks/useWallet';
 import { useMissions } from '@/hooks/useMissions';
 import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { cn } from '@/lib/utils';
-import { 
-  Target, Trophy, Zap, Star, Shield, 
-  ArrowRight, Flame, Loader2, CheckCircle2
-} from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Target, Trophy, Zap, Shield, ArrowRight, Flame, Loader2, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { notify } from '@/components/NotificationCenter';
 import { WalletModal } from '@/components/WalletModal';
+
+const MISSION_ICONS = [Shield, Zap, Target, Flame, Shield];
 
 export default function MissionsPage() {
   const { address, connect, connectWallet, isConnecting, error: walletError, showModal, setShowModal } = useWallet();
   const { missions, totalClaimedPoints, isClaiming, claimMission } = useMissions(address);
   const { extraData } = useOmniPositions(address);
-  const [claimingLocal, setClaimingLocal] = useState<number | null>(null);
-
-  const icons = [Shield, Zap, Target, Star, Flame];
 
   const handleClaim = async (missionId: number, points: number) => {
-    if (!address) {
-      setShowModal(true);
-      return;
-    }
-
+    if (!address) { setShowModal(true); return; }
     const success = await claimMission(missionId);
     if (success) {
-      notify('success', 'Mission Complete', `Successfully synchronized ${points} protocol points.`);
+      notify('success', 'MISSION_COMPLETE', `${points} pts synchronized`);
     } else {
-      notify('error', 'Claim Failed', 'Could not claim mission rewards. The contract may not be deployed yet.');
+      notify('error', 'CLAIM_FAILED', 'Could not claim rewards');
     }
-  };
-
-  const handleDailyBonus = async () => {
-    if (!address) {
-      setShowModal(true);
-      return;
-    }
-    setClaimingLocal(99);
-    setTimeout(() => {
-      setClaimingLocal(null);
-      notify('success', 'Daily Bonus', '+50 EXP Bonus authorized.');
-    }, 1500);
   };
 
   const totalPoints = totalClaimedPoints || extraData.score || 0;
   const completedCount = missions.filter(m => m.completed).length;
   const claimedCount = missions.filter(m => m.claimed).length;
-  const progress = (completedCount / missions.length) * 100;
+  const progress = (completedCount / Math.max(missions.length, 1)) * 100;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic text-white">Mission Center</h1>
-          <p className="text-xs font-bold text-white/40 uppercase tracking-widest mt-1">Ecosystem Achievement System</p>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="arc-glass px-6 py-3 rounded-2xl border border-white/10 flex flex-col items-end">
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Global Rank</span>
-            <span className="text-lg font-black text-blue-500 italic uppercase">Rank A - Elite</span>
-          </div>
+    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+      <header className="border border-[#1a1a1a] bg-[#0f0f0f] p-4">
+        <div className="flex items-center gap-3">
+          <Target className="w-4 h-4 text-[#00ff41]" />
+          <h1 className="font-mono text-lg font-bold text-[#00ff41] uppercase tracking-wider">missions</h1>
+          <span className="text-[#2a2a2a]">|</span>
+          <span className="font-mono text-[10px] text-[#2a2a2a]">ACHIEVEMENT_SYSTEM</span>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <ScoreCard label="Activity Score" value={totalPoints.toLocaleString()} icon={Trophy} color="blue" />
-        <ScoreCard label="Active Streak" value={extraData.activeDays} symbol="Days" icon={Flame} color="orange" />
-        <ScoreCard label="Completion" value={`${progress.toFixed(0)}%`} icon={Target} color="purple" />
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="terminal-card p-4">
+          <p className="font-mono text-[8px] text-[#2a2a2a] uppercase tracking-[0.2em] mb-1">total_score</p>
+          <p className="font-mono text-lg font-bold text-[#00ff41] glow-green">{totalPoints.toLocaleString()}</p>
+        </div>
+        <div className="terminal-card p-4">
+          <p className="font-mono text-[8px] text-[#2a2a2a] uppercase tracking-[0.2em] mb-1">streak</p>
+          <p className="font-mono text-lg font-bold text-[#ffb000] glow-amber">{extraData.activeDays}d</p>
+        </div>
+        <div className="terminal-card p-4">
+          <p className="font-mono text-[8px] text-[#2a2a2a] uppercase tracking-[0.2em] mb-1">completion</p>
+          <p className="font-mono text-lg font-bold text-[#e0e0e0]">{progress.toFixed(0)}%</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-4">
-           <h3 className="text-[10px] font-black uppercase text-white/20 tracking-[0.3em] mb-6 ml-2">Active Objectives</h3>
-           {missions.map((m, i) => (
-             <MissionItem 
-               key={m.id} 
-               mission={{ ...m, icon: icons[i] || Shield }}
-               index={i} 
-               isClaiming={isClaiming === m.id}
-               onClaim={() => handleClaim(m.id, m.points)}
-             />
-           ))}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 space-y-3">
+          <span className="font-mono text-[9px] text-[#2a2a2a] uppercase tracking-[0.3em]">active_objectives//</span>
+          {missions.map((m, i) => {
+            const Icon = MISSION_ICONS[i] || Shield;
+            return (
+              <div key={m.id} className={cn(
+                "terminal-card p-4 flex items-center justify-between group transition-all",
+                m.completed ? "border-[#00ff41]/20" : ""
+              )}>
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-8 h-8 border flex items-center justify-center transition-colors",
+                    m.completed ? "border-[#00ff41]/30 text-[#00ff41] bg-[#00ff41]/5" : "border-[#1a1a1a] text-[#2a2a2a]"
+                  )}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] text-[#e0e0e0] uppercase">{m.title}</span>
+                      <span className="font-mono text-[8px] text-[#00ff41] border border-[#00ff41]/20 px-1.5 py-0.5">+{m.points}</span>
+                    </div>
+                    <p className="font-mono text-[9px] text-[#2a2a2a] mt-0.5">{m.description}</p>
+                  </div>
+                </div>
+                
+                {m.completed ? (
+                  m.claimed ? (
+                    <div className="flex items-center gap-1.5 text-[#00ff41]">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span className="font-mono text-[9px] uppercase">claimed</span>
+                    </div>
+                  ) : (
+                    <button onClick={() => handleClaim(m.id, m.points)} disabled={isClaiming === m.id}
+                      className="btn-terminal py-1.5 px-4 text-[9px]">
+                      {isClaiming === m.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'claim'}
+                    </button>
+                  )
+                ) : (
+                  <ArrowRight className="w-3 h-3 text-[#1a1a1a] group-hover:text-[#4a4a4a] transition-colors" />
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        <div className="lg:col-span-4 space-y-6">
-           <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8">
-                <Trophy className="w-12 h-12 text-white/5" />
-              </div>
-              <h3 className="font-bold text-xs uppercase tracking-[0.2em] text-white/40 mb-8">Season 1 Rewards</h3>
-              <div className="space-y-6">
-                 <RewardItem title="Early Adopter Badge" requirement="Reach 1,000 Points" progress={Math.min(100, (totalPoints / 1000) * 100)} />
-                 <RewardItem title="Ecosystem Contributor" requirement="5 Completed Missions" progress={(completedCount / 5) * 100} />
-                 <RewardItem title="Arc Pioneer" requirement="Bridge Assets" progress={missions.find(m => m.id === 3)?.claimed ? 100 : 0} />
-              </div>
-              <button className="w-full mt-10 py-4 bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all">
-                 View All Rewards
-              </button>
-           </section>
+        <div className="lg:col-span-4 space-y-4">
+          <div className="terminal-card p-4">
+            <span className="font-mono text-[9px] text-[#2a2a2a] uppercase tracking-[0.3em] block mb-4">season_1_rewards//</span>
+            <div className="space-y-4">
+              <RewardItem title="early_adopter" req="1000 pts" progress={Math.min(100, (totalPoints / 1000) * 100)} />
+              <RewardItem title="contributor" req="5 missions" progress={(completedCount / 5) * 100} />
+              <RewardItem title="pioneer" req="bridge_assets" progress={missions.find(m => m.id === 3)?.claimed ? 100 : 0} />
+            </div>
+          </div>
 
-           <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
-              <h3 className="font-bold text-xs uppercase tracking-[0.2em] text-white/40 mb-6">Daily Bonus</h3>
-              <button 
-                onClick={handleDailyBonus}
-                disabled={claimingLocal !== null}
-                className="w-full bg-blue-600/10 border border-blue-500/20 rounded-2xl p-6 flex flex-col items-center text-center space-y-3 hover:bg-blue-600/20 transition-all group"
-              >
-                 <Zap className={cn("w-8 h-8 text-blue-500 transition-transform group-hover:scale-110", claimingLocal === 99 && "animate-pulse")} />
-                 <p className="text-xs font-bold text-white uppercase tracking-widest">Authorize Daily Bonus</p>
-                 <div className="text-2xl font-black text-white italic">CLAIM NOW</div>
-                 <p className="text-[10px] text-white/40 uppercase font-bold">+50 EXP Bonus</p>
-              </button>
-           </section>
+          <div className="terminal-card p-4">
+            <span className="font-mono text-[9px] text-[#2a2a2a] uppercase tracking-[0.3em] block mb-4">daily_bonus//</span>
+            <button onClick={() => { if (!address) { setShowModal(true); return; } notify('success', 'BONUS', '+50 EXP'); }}
+              className="w-full terminal-card p-4 border border-[#ffb000]/20 hover:border-[#ffb000]/40 transition-colors text-center group">
+              <Zap className="w-5 h-5 text-[#ffb000] mx-auto mb-2 group-hover:glow-amber" />
+              <p className="font-mono text-[10px] text-[#ffb000] uppercase">authorize_bonus</p>
+              <p className="font-mono text-[8px] text-[#2a2a2a] mt-1">+50 EXP</p>
+            </button>
+          </div>
         </div>
       </div>
       <WalletModal isOpen={showModal} onClose={() => setShowModal(false)} onSelect={connectWallet} isConnecting={isConnecting} error={walletError} />
@@ -124,94 +130,17 @@ export default function MissionsPage() {
   );
 }
 
-function ScoreCard({ label, value, symbol, icon: Icon, color }: { label: string, value: string | number, symbol?: string, icon: any, color: string }) {
+function RewardItem({ title, req, progress }: { title: string, req: string, progress: number }) {
   return (
-    <div className="arc-glass rounded-[2.5rem] p-8 border border-white/5 relative overflow-hidden group">
-      <div className={cn(
-        "absolute -top-12 -right-12 w-32 h-32 blur-3xl opacity-20 transition-opacity group-hover:opacity-40",
-        color === 'blue' ? "bg-blue-600" : color === 'orange' ? "bg-orange-600" : "bg-purple-600"
-      )} />
-      <Icon className={cn(
-        "w-6 h-6 mb-6",
-        color === 'blue' ? "text-blue-500" : color === 'orange' ? "text-orange-500" : "text-purple-500"
-      )} />
-      <div className="space-y-1">
-        <p className="text-[10px] font-black uppercase text-white/20 tracking-widest">{label}</p>
-        <div className="flex items-baseline gap-2">
-          <h3 className="text-4xl font-black italic tracking-tighter text-white">{value}</h3>
-          {symbol && <span className="text-[10px] font-bold text-white/20 uppercase">{symbol}</span>}
-        </div>
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className="font-mono text-[9px] text-[#4a4a4a] uppercase">{title}</span>
+        <span className="font-mono text-[8px] text-[#2a2a2a]">{progress.toFixed(0)}%</span>
       </div>
-    </div>
-  );
-}
-
-function MissionItem({ mission, index, isClaiming, onClaim }: { mission: any, index: number, isClaiming: boolean, onClaim: () => void }) {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className={cn(
-        "arc-glass rounded-[2rem] p-6 border border-white/5 flex items-center justify-between group transition-all",
-        mission.completed ? "border-green-500/10" : "hover:border-white/20 hover:bg-white/[0.04]"
-      )}
-    >
-      <div className="flex items-center gap-5">
-        <div className={cn(
-          "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all",
-          mission.completed ? "bg-green-500/10 border-green-500/20 text-green-500" : "bg-white/5 border-white/5 text-white/30 group-hover:text-white"
-        )}>
-          <mission.icon className="w-6 h-6" />
-        </div>
-        <div>
-           <div className="flex items-center gap-2">
-             <h4 className="font-bold text-sm text-white uppercase tracking-tight">{mission.title}</h4>
-             <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md">+{mission.points}</span>
-           </div>
-           <p className="text-[11px] text-white/40 font-medium">{mission.description}</p>
-        </div>
+      <div className="h-1 bg-[#1a1a1a] overflow-hidden">
+        <div className="h-full bg-[#00ff41] transition-all" style={{ width: `${progress}%` }} />
       </div>
-      
-      {mission.completed ? (
-        mission.claimed ? (
-          <div className="flex items-center gap-2 text-green-500 px-4 py-2">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Claimed</span>
-          </div>
-        ) : (
-          <button 
-            onClick={onClaim}
-            disabled={isClaiming}
-            className="bg-green-500 text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-          >
-             {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-          </button>
-        )
-      ) : (
-        <div className="text-white/10 group-hover:text-white transition-all group-hover:translate-x-1">
-           <ArrowRight className="w-5 h-5" />
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-function RewardItem({ title, requirement, progress }: { title: string, requirement: string, progress: number }) {
-  return (
-    <div className="space-y-2">
-       <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-          <span className="text-white/60">{title}</span>
-          <span className="text-white/20">{progress.toFixed(0)}%</span>
-       </div>
-       <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            className="h-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]"
-          />
-       </div>
-       <p className="text-[9px] text-white/20 italic">{requirement}</p>
+      <p className="font-mono text-[7px] text-[#2a2a2a]">{req}</p>
     </div>
   );
 }
