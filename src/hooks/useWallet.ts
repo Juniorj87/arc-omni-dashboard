@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { ARC_NETWORK } from '../lib/constants';
 
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (event: string, callback: (...args: unknown[]) => void) => void;
+  removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
+  isMetaMask?: boolean;
+  isRabby?: boolean;
+}
+
 export function useWallet() {
   const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +22,7 @@ export function useWallet() {
     if (typeof window === 'undefined') return;
 
     // Detect Rabby or MetaMask
-    const provider = (window as any).ethereum;
+    const provider = (window as unknown as { ethereum: EthereumProvider }).ethereum;
     if (!provider) {
       setError('No Ethereum wallet found. Please install MetaMask or Rabby.');
       return;
@@ -30,20 +38,22 @@ export function useWallet() {
     setError(null);
 
     try {
-      const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const browserProvider = new ethers.BrowserProvider(provider as any);
       
       const accounts = await browserProvider.send("eth_requestAccounts", []);
       
       const network = await browserProvider.getNetwork();
       if (Number(network.chainId) !== ARC_NETWORK.chainId) {
         try {
-          await (window as any).ethereum.request({
+          await provider.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: `0x${ARC_NETWORK.chainId.toString(16)}` }],
           });
-        } catch (switchError: any) {
-          if (switchError.code === 4902) {
-            await (window as any).ethereum.request({
+        } catch (switchError: unknown) {
+          const sError = switchError as { code: number; message: string };
+          if (sError.code === 4902) {
+            await provider.request({
               method: 'wallet_addEthereumChain',
               params: [
                 {
@@ -66,9 +76,10 @@ export function useWallet() {
       }
 
       setAddress(accounts[0]);
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
-      console.error(err);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e.message || 'Failed to connect wallet');
+      console.error(e);
     } finally {
       setIsConnecting(false);
     }
@@ -80,13 +91,26 @@ export function useWallet() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      (window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
-        setAddress(accounts[0] || null);
-      });
-      (window as any).ethereum.on('chainChanged', () => {
+    if (typeof window === 'undefined') return;
+    const provider = (window as unknown as { ethereum: EthereumProvider }).ethereum;
+    if (provider) {
+      const handleAccountsChanged = (accounts: unknown) => {
+        const accs = accounts as string[];
+        setAddress(accs[0] || null);
+      };
+      const handleChainChanged = () => {
         window.location.reload();
-      });
+      };
+
+      provider.on('accountsChanged', handleAccountsChanged);
+      provider.on('chainChanged', handleChainChanged);
+
+      return () => {
+        if (provider.removeListener) {
+          provider.removeListener('accountsChanged', handleAccountsChanged);
+          provider.removeListener('chainChanged', handleChainChanged);
+        }
+      };
     }
   }, []);
 

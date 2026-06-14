@@ -1,53 +1,89 @@
 @import "tailwindcss";
 
 :root {
-  --background: #050505;
+  --background: #0b0f17;
   --foreground: #ffffff;
-  --card: #0a0a0a;
-  --card-foreground: #ffffff;
-  --popover: #0a0a0a;
-  --popover-foreground: #ffffff;
-  --primary: #ffffff;
-  --primary-foreground: #050505;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #ffffff;
-  --muted: #1a1a1a;
-  --muted-foreground: #a1a1aa;
-  --accent: #1a1a1a;
-  --accent-foreground: #ffffff;
-  --destructive: #7f1d1d;
-  --destructive-foreground: #ffffff;
-  --border: #1a1a1a;
-  --input: #1a1a1a;
-  --ring: #d4d4d8;
-  --radius: 0.5rem;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme {
+  --font-inter: "Inter", sans-serif;
+  --font-geist: "Geist", sans-serif;
+  --font-satoshi: "Satoshi", sans-serif;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-/* Arc-style Glassmorphism */
-.arc-glass {
-  background: rgba(10, 10, 10, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+@layer utilities {
+  .arc-glass {
+    @apply bg-[rgba(255,255,255,0.03)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)];
+  }
+  
+  .arc-glass-heavy {
+    @apply bg-[rgba(255,255,255,0.06)] backdrop-blur-2xl border border-[rgba(255,255,255,0.12)];
+  }
+
+  .arc-gradient-text {
+    @apply bg-clip-text text-transparent bg-linear-to-r from-blue-400 via-white to-purple-400;
+  }
+
+  .arc-card-hover {
+    @apply hover:border-white/20 hover:bg-white/5 transition-all duration-300;
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+  }
 }
 
-.arc-card-hover {
-  transition: all 0.2s ease-in-out;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
 }
 
-.arc-card-hover:hover {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(15, 15, 15, 0.8);
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.arc-gradient-text {
-  background: linear-gradient(to right, #ffffff, #a1a1aa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Typography Overrides */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-geist);
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: var(--font-geist-mono), monospace;
 }

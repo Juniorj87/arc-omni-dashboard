@@ -56,47 +56,77 @@ We are building a comprehensive DeFi dashboard for the Arc Testnet. The plan fol
 
 ### Phase 2: Data Layer (The "Omni" Fetcher)
 
-- [ ] **Task 3: useWallet Hook**
+- [x] **Task 3: useWallet Hook**
   - **Description:** Implement basic wallet connection and address state management.
   - **Acceptance:**
-    - [ ] Connects to MetaMask/Browser Wallet.
-    - [ ] Detects network and alerts if not on Arc Testnet.
+    - [x] Connects to MetaMask/Browser Wallet.
+    - [x] Detects network and alerts if not on Arc Testnet.
   - **Verify:** Manual test in browser.
   - **Size:** S
 
-- [ ] **Task 4: useBalances & usePositions Hooks**
+- [x] **Task 4: useBalances & usePositions Hooks**
   - **Description:** Implement fetching for ARC/USDC/EURC balances and LP positions from Achswap/Presto (Uniswap V2 pattern).
   - **Acceptance:**
-    - [ ] Returns correct balances for fixed test wallets.
-    - [ ] Correctly calculates LP share value where possible.
+    - [x] Returns correct balances for fixed test wallets.
+    - [x] Correctly calculates LP share value where possible.
   - **Verify:** Compare console output with Block Explorer data.
   - **Size:** M
 
-- [ ] **Task 5: ArcPerps & Curve Integration**
+- [x] **Task 5: ArcPerps & Curve Integration**
   - **Description:** Specialized fetching for ArcPerps (Engine deposits) and Curve (Stable pools).
   - **Acceptance:**
-    - [ ] Shows deposits in ArcPerps.
-    - [ ] Shows Curve LP balances.
+    - [x] Shows deposits in ArcPerps.
+    - [x] Shows Curve LP balances.
   - **Verify:** Manual check with active wallets.
   - **Size:** M
 
 ### Phase 3: UI & Refinement
 
-- [ ] **Task 6: Dashboard Layout & Theme**
+- [x] **Task 6: Dashboard Layout & Theme**
   - **Description:** Create the "Arc Dark" theme and the main responsive grid layout.
   - **Acceptance:**
-    - [ ] Sidebar/Header structure.
-    - [ ] Refined dark aesthetic (Glassmorphism, deep shadows).
+    - [x] Sidebar/Header structure.
+    - [x] Refined dark aesthetic (Glassmorphism, deep shadows).
   - **Verify:** Visual review on Mobile/Desktop.
   - **Size:** M
 
-- [ ] **Task 7: Component Implementation**
+- [x] **Task 7: Component Implementation**
   - **Description:** Build the `BalanceCard`, `PositionTable`, and `ProtocolBreakdown` components.
   - **Acceptance:**
-    - [ ] Components are responsive and accessible.
-    - [ ] Loading states (skeletons) are implemented.
+    - [x] Components are responsive and accessible.
+    - [x] Loading states (skeletons) are implemented.
   - **Verify:** Test with throttled network speed.
   - **Size:** L
+
+### Phase 4: Final Polish & Deployment
+
+- [x] **Task 8: Analytics & Engagement Score**
+  - **Description:** Algorithm to calculate user rank based on on-chain activity.
+  - **Acceptance:**
+    - [x] Dashboard shows dynamic "Engagement Score".
+  - **Verify:** Score updates based on tx count and LP positions.
+  - **Size:** S
+
+- [x] **Task 9: Transaction Modal (Send Flow)**
+  - **Description:** Functional modal to transfer USDC/EURC.
+  - **Acceptance:**
+    - [x] Successful transfer on Arc Testnet via UI.
+  - **Verify:** Check tx on ArcScan after sending from UI.
+  - **Size:** M
+
+- [ ] **Task 10: Performance Optimization & Mobile**
+  - **Description:** Refine responsiveness and fix layout shifts.
+  - **Acceptance:**
+    - [ ] Full mobile responsiveness.
+  - **Verify:** Test on various screen sizes.
+  - **Size:** S
+
+- [ ] **Task 11: Deployment & CI/CD**
+  - **Description:** Deploy to Vercel.
+  - **Acceptance:**
+    - [ ] Live URL accessible.
+  - **Verify:** Access dashboard from public domain.
+  - **Size:** S
 
 ## Risks and Mitigations
 

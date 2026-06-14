@@ -1,6 +1,6 @@
 'use client';
 
-import { ShieldCheck, Info, Book, Zap, Layers, Globe, ArrowUpRight } from 'lucide-react';
+import { Info, Zap, Layers, Globe } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DocsPage() {

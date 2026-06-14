@@ -21,7 +21,7 @@ export function formatBalance(value: bigint, decimals: number = 18): string {
       minimumFractionDigits: 2,
       maximumFractionDigits: 6,
     });
-  } catch (e) {
+  } catch {
     return "0.00";
   }
 }
