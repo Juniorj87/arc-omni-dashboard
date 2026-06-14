@@ -32,3 +32,13 @@ export const ARC_PERP_ENGINE_ABI = [
   "function getAccountInfo(address account) view returns (uint256 margin, uint256 leverage, uint256 pnl)",
   "function deposits(address account) view returns (uint256)",
 ];
+
+export const MISSIONS_ABI = [
+  "function completedMissions(address user) view returns (bool[])",
+  "function getCompletedCount(address user) view returns (uint256)",
+  "function claimMission(uint256 missionId) external",
+  "function hasClaimed(address user, uint256 missionId) view returns (bool)",
+  "function totalPoints(address user) view returns (uint256)",
+  "function missionPoints(uint256 missionId) view returns (uint256)",
+  "event MissionClaimed(address indexed user, uint256 indexed missionId, uint256 points)",
+];

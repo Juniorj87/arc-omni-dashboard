@@ -2,6 +2,7 @@
 
 import { useWallet } from '@/hooks/useWallet';
 import { useOmniPositions } from '@/hooks/useOmniPositions';
+import { WalletModal } from '@/components/WalletModal';
 import { cn } from '@/lib/utils';
 import { 
   PieChart as PieChartIcon, ArrowUpRight, 
@@ -9,12 +10,32 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 
 const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ffffff', '#a1a1aa'];
 
 export default function PortfolioPage() {
-  const { address } = useWallet();
-  const { balances, positions } = useOmniPositions(address);
+  const { address: connectedAddress, connect, connectWallet, isConnecting, error: walletError, showModal, setShowModal } = useWallet();
+  const [searchInput, setSearchInput] = useState('');
+  const [activeAddress, setActiveAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (connectedAddress && !activeAddress) {
+      setActiveAddress(connectedAddress);
+      setSearchInput(connectedAddress);
+    }
+  }, [connectedAddress, activeAddress]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = searchInput.trim();
+    if (clean.startsWith('0x') && clean.length === 42 && ethers.isAddress(clean)) {
+      setActiveAddress(clean);
+    }
+  };
+
+  const { balances, positions } = useOmniPositions(activeAddress);
 
   const totalValue = parseFloat(balances.USDC || '0') + 
                      parseFloat(balances.EURC || '0') + 
@@ -36,6 +57,18 @@ export default function PortfolioPage() {
           <p className="text-xs font-bold text-white/40 uppercase tracking-widest mt-1">Unified Asset Overview</p>
         </div>
         <div className="flex items-center gap-4">
+          <form onSubmit={handleSearch} className="relative">
+            <input
+              type="text"
+              placeholder="Look up address (0x...)"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-2xl py-3 px-5 pr-12 text-xs font-mono focus:outline-none focus:border-blue-500 transition-all text-white placeholder:text-white/20 w-72"
+            />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-blue-500 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </button>
+          </form>
           <div className="arc-glass px-6 py-3 rounded-2xl border border-white/10 flex flex-col">
             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Active Network</span>
             <div className="flex items-center gap-2 mt-1">
@@ -46,6 +79,20 @@ export default function PortfolioPage() {
         </div>
       </header>
 
+      {!activeAddress && (
+        <div className="flex flex-col items-center justify-center py-32 space-y-6">
+          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center">
+            <Briefcase className="w-8 h-8 text-white/20" />
+          </div>
+          <p className="text-sm font-bold text-white/40">Enter an address or connect a wallet to view portfolio</p>
+          <button onClick={connect} disabled={isConnecting} className="px-8 py-3 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all">
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          </button>
+        </div>
+      )}
+
+      {activeAddress && (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <KpiCard 
           label="Total Net Worth" 
@@ -151,9 +198,12 @@ export default function PortfolioPage() {
              <div className="mt-6 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.3em]">
                Initialize Explorer <ChevronRight className="w-3 h-3" />
              </div>
-          </section>
+           </section>
         </div>
       </div>
+      </>
+      )}
+      <WalletModal isOpen={showModal} onClose={() => setShowModal(false)} onSelect={connectWallet} isConnecting={isConnecting} error={walletError} />
     </div>
   );
 }

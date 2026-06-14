@@ -42,4 +42,8 @@ export const PROTOCOLS = {
     name: "Synthra",
     router: "0x74133b5D179a7827e1343a8bF11330603d215634",
   },
+  MISSIONS: {
+    name: "ArcMissions",
+    contract: "0x424fF7f4A7CBB654E5168829C8535be3C0ef2e6c",
+  },
 };

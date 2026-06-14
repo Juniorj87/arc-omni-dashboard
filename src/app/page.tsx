@@ -2,6 +2,7 @@
 
 import { useWallet } from '@/hooks/useWallet';
 import { useOmniPositions } from '@/hooks/useOmniPositions';
+import { useActiveNode } from '@/hooks/useActiveNode';
 import { truncateAddress, cn } from '@/lib/utils';
 import { 
   PieChart as PieChartIcon, Search, Zap, 
@@ -12,29 +13,40 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area } fr
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SendModal } from '@/components/SendModal';
+import { WalletModal } from '@/components/WalletModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#ffffff', '#a1a1aa'];
 
 export default function Home() {
   const { address: connectedAddress, connect, disconnect, isConnecting } = useWallet();
+  const { activeAddress, updateActiveNode, searchedAddress } = useActiveNode();
   const [searchInput, setSearchAddress] = useState('');
-  const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const { balances, positions, extraData, history, isLoading } = useOmniPositions(activeAddress);
+  
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
   useEffect(() => {
-    if (connectedAddress && !activeAddress) {
-      setActiveAddress(connectedAddress);
+    if (searchedAddress) {
+      setSearchAddress(searchedAddress);
+    } else if (connectedAddress) {
       setSearchAddress(connectedAddress);
     }
-  }, [connectedAddress, activeAddress]);
+  }, [searchedAddress, connectedAddress]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchInput.startsWith('0x') && searchInput.length === 42) {
-      setActiveAddress(searchInput);
-    }
+    updateActiveNode(searchInput);
+  };
+
+  const handleConnectClick = () => {
+    setIsWalletModalOpen(true);
+  };
+
+  const handleWalletSelect = (type: 'metamask' | 'rabby') => {
+    connect(type);
+    setIsWalletModalOpen(false);
   };
 
   const totalNetWorth = parseFloat(balances.USDC || '0') + 
@@ -48,7 +60,6 @@ export default function Home() {
     { name: 'Sun', val: 750 }
   ];
 
-  // REAL ECOSYSTEM PROJECTS FROM ARC_CONFIG
   const ecosystemProjects = [
     { name: 'Achswap', desc: 'Native AMM Dex', url: 'https://achswap.org/swap' },
     { name: 'Xylonet', desc: 'Liquidity Layer', url: 'https://www.xylonet.xyz/swap' },
@@ -61,7 +72,6 @@ export default function Home() {
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-8 pb-24 relative">
       
-      {/* Search & Profile Bar */}
       <div className="flex flex-col lg:flex-row justify-between items-center gap-6 pb-8 border-b border-white/5 relative z-20">
         <div className="relative w-full lg:max-w-xl group">
            <Search className={cn("absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors", isLoading ? "text-blue-500 animate-pulse" : "text-white/20 group-focus-within:text-blue-500")} />
@@ -89,7 +99,7 @@ export default function Home() {
             </div>
           ) : (
             <button 
-              onClick={connect} 
+              onClick={handleConnectClick} 
               disabled={isConnecting}
               className="px-8 py-3.5 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5"
             >
@@ -115,11 +125,6 @@ export default function Home() {
                   <div>
                     <h3 className="text-lg font-black uppercase italic tracking-tighter text-white">Portfolio Trajectory</h3>
                     <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Institutional Growth Metrics</p>
-                  </div>
-                  <div className="flex bg-white/5 p-1 rounded-xl">
-                     {['1D', '1W', '1M', 'ALL'].map(t => (
-                       <button key={t} className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all", t === '1W' ? "bg-white text-black" : "text-white/20 hover:text-white/40")}>{t}</button>
-                     ))}
                   </div>
                </div>
                <div className="h-80 w-full">
@@ -244,12 +249,12 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        <HeroSection connect={connect} isConnecting={isConnecting} />
+        <HeroSection connect={handleConnectClick} isConnecting={isConnecting} />
       )}
 
       <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} address={connectedAddress || ''} />
+      <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} onSelect={handleWalletSelect} />
       
-      {/* Dynamic Network Pulse Background */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-20">
          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[150px] rounded-full animate-pulse" />
          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />

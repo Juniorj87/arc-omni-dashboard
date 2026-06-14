@@ -13,9 +13,10 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toPng } from 'html-to-image';
 import { getRankLabel } from '@/lib/scoring';
+import { WalletModal } from '@/components/WalletModal';
 
 export default function LeaderboardPage() {
-  const { address: connectedAddress } = useWallet();
+  const { address: connectedAddress, connect, connectWallet, isConnecting, error: walletError, showModal, setShowModal } = useWallet();
   const [searchAddress, setSearchAddress] = useState('');
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   
@@ -43,11 +44,11 @@ export default function LeaderboardPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = searchAddress.trim();
-    if (ethers.isAddress(clean)) {
-      setActiveAddress(clean);
-    } else {
-      alert("Invalid address.");
+    const input = searchAddress.trim();
+    if (input.length > 0 && ethers.isAddress(input)) {
+      setActiveAddress(input);
+    } else if (input.length > 0) {
+      alert("Invalid Ethereum address.");
     }
   };
 
@@ -300,6 +301,7 @@ export default function LeaderboardPage() {
            </div>
         </section>
       )}
+      <WalletModal isOpen={showModal} onClose={() => setShowModal(false)} onSelect={connectWallet} isConnecting={isConnecting} error={walletError} />
     </main>
   );
 }

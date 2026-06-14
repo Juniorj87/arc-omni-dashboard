@@ -1,39 +1,55 @@
 'use client';
 
 import { useWallet } from '@/hooks/useWallet';
+import { useMissions } from '@/hooks/useMissions';
 import { useOmniPositions } from '@/hooks/useOmniPositions';
 import { cn } from '@/lib/utils';
 import { 
   Target, Trophy, Zap, Star, Shield, 
-  CheckCircle2, ArrowRight, Flame, Loader2
+  ArrowRight, Flame, Loader2, CheckCircle2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { notify } from '@/components/NotificationCenter';
+import { WalletModal } from '@/components/WalletModal';
 
 export default function MissionsPage() {
-  const { address } = useWallet();
+  const { address, connect, connectWallet, isConnecting, error: walletError, showModal, setShowModal } = useWallet();
+  const { missions, totalClaimedPoints, isClaiming, claimMission } = useMissions(address);
   const { extraData } = useOmniPositions(address);
-  const [claiming, setClaiming] = useState<number | null>(null);
+  const [claimingLocal, setClaimingLocal] = useState<number | null>(null);
 
-  const missions = [
-    { id: 1, title: 'Identity Link', description: 'Connect your Web3 wallet to the terminal.', points: 10, completed: !!address, icon: Shield },
-    { id: 2, title: 'Payload Transmission', description: 'Complete your first ERC20 transfer on Arc.', points: 50, completed: extraData.txCount > 0, icon: Zap },
-    { id: 3, title: 'Liquidity Provision', description: 'Swap or add liquidity to any supported DEX.', points: 100, completed: extraData.txCount > 5, icon: Target },
-    { id: 4, title: 'Ecosystem Bridge', description: 'Bridge assets from another network to Arc.', points: 250, completed: false, icon: Star },
-    { id: 5, title: 'Daily Check-in', description: 'Access the terminal 3 days in a row.', points: 25, completed: extraData.activeDays >= 3, icon: Flame },
-  ];
+  const icons = [Shield, Zap, Target, Star, Flame];
 
-  const handleClaim = (id: number, points: number) => {
-    setClaiming(id);
+  const handleClaim = async (missionId: number, points: number) => {
+    if (!address) {
+      setShowModal(true);
+      return;
+    }
+
+    const success = await claimMission(missionId);
+    if (success) {
+      notify('success', 'Mission Complete', `Successfully synchronized ${points} protocol points.`);
+    } else {
+      notify('error', 'Claim Failed', 'Could not claim mission rewards. The contract may not be deployed yet.');
+    }
+  };
+
+  const handleDailyBonus = async () => {
+    if (!address) {
+      setShowModal(true);
+      return;
+    }
+    setClaimingLocal(99);
     setTimeout(() => {
-      setClaiming(null);
-      notify('success', 'Points Secured', `Successfully synchronized ${points} protocol points.`);
+      setClaimingLocal(null);
+      notify('success', 'Daily Bonus', '+50 EXP Bonus authorized.');
     }, 1500);
   };
 
-  const totalPoints = extraData.score || 0;
+  const totalPoints = totalClaimedPoints || extraData.score || 0;
   const completedCount = missions.filter(m => m.completed).length;
+  const claimedCount = missions.filter(m => m.claimed).length;
   const progress = (completedCount / missions.length) * 100;
 
   return (
@@ -64,9 +80,9 @@ export default function MissionsPage() {
            {missions.map((m, i) => (
              <MissionItem 
                key={m.id} 
-               mission={m} 
+               mission={{ ...m, icon: icons[i] || Shield }}
                index={i} 
-               isClaiming={claiming === m.id}
+               isClaiming={isClaiming === m.id}
                onClaim={() => handleClaim(m.id, m.points)}
              />
            ))}
@@ -81,7 +97,7 @@ export default function MissionsPage() {
               <div className="space-y-6">
                  <RewardItem title="Early Adopter Badge" requirement="Reach 1,000 Points" progress={Math.min(100, (totalPoints / 1000) * 100)} />
                  <RewardItem title="Ecosystem Contributor" requirement="5 Completed Missions" progress={(completedCount / 5) * 100} />
-                 <RewardItem title="Arc Pioneer" requirement="Bridge Assets" progress={0} />
+                 <RewardItem title="Arc Pioneer" requirement="Bridge Assets" progress={missions.find(m => m.id === 3)?.claimed ? 100 : 0} />
               </div>
               <button className="w-full mt-10 py-4 bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all">
                  View All Rewards
@@ -91,11 +107,11 @@ export default function MissionsPage() {
            <section className="arc-glass rounded-[2.5rem] p-8 border border-white/5">
               <h3 className="font-bold text-xs uppercase tracking-[0.2em] text-white/40 mb-6">Daily Bonus</h3>
               <button 
-                onClick={() => handleClaim(99, 50)}
-                disabled={claiming !== null}
+                onClick={handleDailyBonus}
+                disabled={claimingLocal !== null}
                 className="w-full bg-blue-600/10 border border-blue-500/20 rounded-2xl p-6 flex flex-col items-center text-center space-y-3 hover:bg-blue-600/20 transition-all group"
               >
-                 <Zap className={cn("w-8 h-8 text-blue-500 transition-transform group-hover:scale-110", claiming === 99 && "animate-pulse")} />
+                 <Zap className={cn("w-8 h-8 text-blue-500 transition-transform group-hover:scale-110", claimingLocal === 99 && "animate-pulse")} />
                  <p className="text-xs font-bold text-white uppercase tracking-widest">Authorize Daily Bonus</p>
                  <div className="text-2xl font-black text-white italic">CLAIM NOW</div>
                  <p className="text-[10px] text-white/40 uppercase font-bold">+50 EXP Bonus</p>
@@ -103,6 +119,7 @@ export default function MissionsPage() {
            </section>
         </div>
       </div>
+      <WalletModal isOpen={showModal} onClose={() => setShowModal(false)} onSelect={connectWallet} isConnecting={isConnecting} error={walletError} />
     </div>
   );
 }
@@ -157,13 +174,20 @@ function MissionItem({ mission, index, isClaiming, onClaim }: { mission: any, in
       </div>
       
       {mission.completed ? (
-        <button 
-          onClick={onClaim}
-          disabled={isClaiming}
-          className="bg-green-500 text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-        >
-           {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-        </button>
+        mission.claimed ? (
+          <div className="flex items-center gap-2 text-green-500 px-4 py-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Claimed</span>
+          </div>
+        ) : (
+          <button 
+            onClick={onClaim}
+            disabled={isClaiming}
+            className="bg-green-500 text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+          >
+             {isClaiming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+          </button>
+        )
       ) : (
         <div className="text-white/10 group-hover:text-white transition-all group-hover:translate-x-1">
            <ArrowRight className="w-5 h-5" />
